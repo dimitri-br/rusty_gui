@@ -3,7 +3,7 @@
 //! of data around from the window to the renderer, without sacrificing much usability for
 //! the user.
 
-use crate::rendering::{Window, WindowBuilder, Renderer};
+use crate::{layout::Layout, rendering::{Window, WindowBuilder, Renderer}};
 use futures::executor::block_on;
 
 pub struct GUI{
@@ -35,6 +35,8 @@ impl GUI{
     }
 }
 
+// This part just has some helpful functions to simplify adding components
+// and managing the GUI. Still needs a lot more functionality
 impl GUI{
     /// Runs mainloop on this structs window field
     pub fn main_loop(&mut self){
@@ -49,5 +51,20 @@ impl GUI{
     /// Gets a reference to the winit window. Used to make wgpu surfaces
     pub fn get_window_ref(&self) -> &winit::window::Window{
         &self.window.window
+    }
+
+    /// Sets the current components to render, consuming the layout in the process
+    pub fn set_render_layout(&mut self, layout: Layout){
+        self.renderer.layout = layout;
+    }
+
+    /// Returns a mutable reference to the currently active render layout
+    pub fn borrow_render_layout(&mut self) -> &mut Layout{
+        &mut self.renderer.layout
+    }
+
+    /// Borrow the render device (Used for things like creating buffers, and creating certain components)
+    pub fn borrow_render_device(&self) -> &wgpu::Device{
+        &self.renderer.device
     }
 }

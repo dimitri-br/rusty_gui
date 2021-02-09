@@ -122,7 +122,7 @@ impl Window{
     /// You can define your own to handle events
     ///
     /// Button presses will still be automatically handled.
-    pub fn default_event_callback(event: Event<()>, window: &mut window::Window){
+    pub fn default_event_callback(event: Event<()>, _window: &mut window::Window){
         println!("Event: {:?}", event);
     }
 

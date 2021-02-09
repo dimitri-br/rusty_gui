@@ -4,7 +4,9 @@
 //! and render it to the screen as a quad. This module does little more than,
 //! render!
 
-use crate::components::{Label, GUIComponent};
+use wgpu::util::StagingBelt;
+
+use crate::layout::Layout;
 
 /// # Renderer
 ///
@@ -19,6 +21,11 @@ pub struct Renderer{
     size: winit::dpi::PhysicalSize<u32>,
 
     render_pipeline: wgpu::RenderPipeline,
+    staging_belt: StagingBelt,
+
+    glyph_brush: wgpu_glyph::GlyphBrush<()>,
+
+    pub layout: Layout,    
 }
 
 
@@ -72,6 +79,16 @@ impl Renderer{
 
         let render_pipeline = Renderer::create_render_pipeline(&device);
 
+        let staging_belt = StagingBelt::new(2048);
+
+        
+        let font = wgpu_glyph::ab_glyph::FontArc::try_from_slice(include_bytes!("../../fonts/FingerPaint-Regular.ttf"))
+        .expect("Load font");
+
+        let glyph_brush = wgpu_glyph::GlyphBrushBuilder::using_font(font)
+            .build(&device, wgpu::TextureFormat::Bgra8UnormSrgb);
+
+        let layout = Layout::new();
         Self{
             surface,
             device,
@@ -81,6 +98,9 @@ impl Renderer{
             size,
 
             render_pipeline,
+            staging_belt,
+            glyph_brush,
+            layout,
         }
     }
 
@@ -169,8 +189,6 @@ impl Renderer{
             label: Some("Render Encoder"),
         });   
 
-        let mut label = Label::new("hellO", 64, [64, 64], &self.device);
-
         {
             // Pre pass
             // Main pass - Render all our shaders and objects to the screen
@@ -181,9 +199,9 @@ impl Renderer{
                         resolve_target: None,
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Clear(wgpu::Color {
-                                r: 0.1,
-                                g: 0.1,
-                                b: 0.1,
+                                r: 1.0,
+                                g: 1.0,
+                                b: 1.0,
                                 a: 1.0,
                             }),
                             store: true,
@@ -195,10 +213,21 @@ impl Renderer{
 
             render_pass.set_pipeline(&self.render_pipeline);
 
-
-            label.render(&mut render_pass);
+            for comp in self.layout.components.iter(){
+                comp.render(&mut render_pass);
+            }
+        
         }
 
+        for text_comp in self.layout.text_components.iter(){
+            text_comp.render_text(&mut self.glyph_brush);
+        }
+
+        {
+            self.glyph_brush.draw_queued(&self.device, &mut self.staging_belt, &mut encoder, &frame.view, self.sc_desc.width, self.sc_desc.height).unwrap();
+        }
+
+        self.staging_belt.finish();
          // submit will accept anything that implements IntoIter
          self.queue.submit(std::iter::once(encoder.finish()));
     }
@@ -242,7 +271,7 @@ impl Vertex {
 }
 
 /// This is a helpful quad type to help you render sprites to the screen
-pub const Quad: &[Vertex] = &[
+pub const QUAD: &[Vertex] = &[
     // Changed
     Vertex { position: [-1.0, 1.0, 0.0], tex_coords: [1.0, 0.0], }, // A
     Vertex { position: [-1.0, -1.0, 0.0], tex_coords: [1.0, 1.0], }, // A
