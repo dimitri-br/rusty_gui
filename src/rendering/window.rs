@@ -23,7 +23,7 @@ use winit::event::{WindowEvent, Event};
 pub struct Window{
     pub window: window::Window,
     pub event_loop: Option<event_loop::EventLoop<()>>,
-    pub event_callback_handler: Option<Box<dyn Fn(Event<()>, &mut Window) -> ()>>
+    pub event_callback_handler: Option<Box<dyn Fn(Event<()>, &mut window::Window) -> ()>>
 }
 
 
@@ -36,12 +36,10 @@ impl Window{
     ///
     /// We should also implement a basic check for buttons to check where the cursor is and automatically handle button callbacks if the
     /// user doesn't want to implement callbacks themselves.
-    pub fn main_loop(&mut self){
+    pub fn main_loop(&mut self, renderer: &mut crate::rendering::Renderer){
 
         // Take our event callback handler. We need to take before we start the run, as it isn't thread safe to take it
         // during the loop
-        let event_callback_handler = self.event_callback_handler.take().unwrap();
-
         self.event_loop.take().unwrap().run_return(move |event, _, control_flow| {
             // ControlFlow::Wait pauses the event loop if no events are available to process.
             // This is ideal for non-game applications that only update in response to user
@@ -49,13 +47,41 @@ impl Window{
             *control_flow = ControlFlow::Wait;
             
             match event {
+                // This part checks for a window event, then checks if its either an exit or resize
+                // all other window events will be up to the user
                 Event::WindowEvent {
-                    event: WindowEvent::CloseRequested,
-                    ..
-                } => {
-                    println!("The close button was pressed; stopping");
-                    *control_flow = ControlFlow::Exit
-                },
+                        ref event,
+                        window_id,
+                    } if window_id == self.window.id() =>  {
+                        match event{
+                        WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                        WindowEvent::KeyboardInput {
+                            input,
+                            ..
+                        } => {
+                            match input {
+                                winit::event::KeyboardInput {
+                                    state: winit::event::ElementState::Pressed,
+                                    virtual_keycode: Some(winit::event::VirtualKeyCode::Escape),
+                                    ..
+                                } => {    
+                                    *control_flow = ControlFlow::Exit
+                                },
+                                _ => {}
+                            }
+                        },
+                        WindowEvent::Resized(physical_size) => {
+                            renderer.resize(*physical_size);
+                        }
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                            // new_inner_size is &&mut so we have to dereference it twice
+                            renderer.resize(**new_inner_size);
+                        },
+                        
+                        _ => {}
+                    }
+                }
+
                 Event::MainEventsCleared => {
                     // Application update code.
         
@@ -65,16 +91,27 @@ impl Window{
                     // applications which do not always need to. Applications that redraw continuously
                     // can just render here instead.
                     self.window.request_redraw();
-                },
+                }
                 Event::RedrawRequested(_) => {
                     // Redraw the application.
                     //
                     // It's preferable for applications that do not render continuously to render in
                     // this event rather than in MainEventsCleared, since rendering in here allows
                     // the program to gracefully handle redraws requested by the OS.
-                },
+
+                    renderer.render(); // Render a single frame.
+                }
                 _ => {
-                    event_callback_handler(event, self);
+                    match &self.event_callback_handler{
+                        Some(v) => {
+                            // We have a callback handler, so run it below (with our required parameters)
+                            v(event, &mut self.window);
+                        }
+                        None => {
+                            // No callback handler set, so do nothing
+                        }
+                    }
+                    
                 }
             }
         });
@@ -85,12 +122,12 @@ impl Window{
     /// You can define your own to handle events
     ///
     /// Button presses will still be automatically handled.
-    pub fn default_event_callback(event: Event<()>, window: &mut Window){
+    pub fn default_event_callback(event: Event<()>, window: &mut window::Window){
         println!("Event: {:?}", event);
     }
 
     /// Sets the event callback handler. This cannot be changed once the GUI is running.
-    pub fn set_event_handler(&mut self, event_handler: Box<dyn Fn(Event<()>, &mut Window) -> ()>){
+    pub fn set_event_handler(&mut self, event_handler: Box<dyn Fn(Event<()>, &mut window::Window) -> ()>){
         self.event_callback_handler = Some(event_handler);
     }
 }
