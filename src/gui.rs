@@ -67,4 +67,9 @@ impl GUI{
     pub fn borrow_render_device(&self) -> &wgpu::Device{
         &self.renderer.device
     }
+
+    /// Borrow the winit window handle
+    pub fn borrow_raw_window(&mut self) -> &mut winit::window::Window{
+        &mut self.window.window
+    }
 }

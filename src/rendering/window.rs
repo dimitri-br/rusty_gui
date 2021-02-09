@@ -7,6 +7,8 @@ use winit::{dpi, event_loop, monitor, platform::run_return::EventLoopExtRunRetur
 use winit::event_loop::ControlFlow;
 use winit::event::{WindowEvent, Event};
 
+use super::render;
+
 
 /// # Window
 ///
@@ -143,6 +145,8 @@ pub struct WindowBuilder{
     title: String,
     vsync: bool,
     fullscreen: bool,
+    resizeable: bool,
+    decorations: bool,
 }
 
 /// Default init for WindowBuilder
@@ -153,6 +157,9 @@ impl Default for WindowBuilder{
             title: String::from("Rusty GUI"),
             vsync: true,
             fullscreen: false,
+            resizeable: true,
+            decorations: true,
+            
         }
     }
 }
@@ -185,6 +192,18 @@ impl WindowBuilder{
     /// Set the fullscreen to true or false - make this enum (FULL, BORDERLESS, WINDOW)
     pub fn set_fullscreen(&mut self, fullscreen_enabled: bool) -> &mut Self{
         self.fullscreen = fullscreen_enabled;
+        self
+    }
+
+    /// Enable or disable decorations (the bar at the top of the window)
+    pub fn set_decorations(&mut self, decorations_enabled: bool) -> &mut Self{
+        self.decorations = decorations_enabled;
+        self
+    }
+
+    /// Enable or disable resizing
+    pub fn set_resizeable(&mut self, resizable: bool) -> &mut Self{
+        self.resizeable = resizable;
         self
     }
 
@@ -230,7 +249,7 @@ impl WindowBuilder{
         
         // Build the window
         Window{
-            window: winit_builder.with_title(&self.title).build(&mut event_loop).expect("Failed to build window!"),
+            window: winit_builder.with_resizable(self.resizeable).with_decorations(self.decorations).with_title(&self.title).build(&mut event_loop).expect("Failed to build window!"),
             event_loop: Some(event_loop),
             event_callback_handler: Some(Box::new(Window::default_event_callback)),
         }
