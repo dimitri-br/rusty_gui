@@ -7,6 +7,8 @@ use winit::{dpi, event_loop, monitor, platform::run_return::EventLoopExtRunRetur
 use winit::event_loop::ControlFlow;
 use winit::event::{WindowEvent, Event};
 
+use crate::components::EventGUIComponent;
+
 
 /// # Window
 ///
@@ -23,7 +25,7 @@ use winit::event::{WindowEvent, Event};
 pub struct Window{
     pub window: window::Window,
     pub event_loop: Option<event_loop::EventLoop<()>>,
-    pub event_callback_handler: Option<Box<dyn Fn(Event<()>, &mut window::Window) -> ()>>
+    pub event_callback_handler: Option<Box<dyn Fn(Event<()>, &mut window::Window, &mut crate::rendering::Renderer) -> ()>>,
 }
 
 
@@ -101,17 +103,16 @@ impl Window{
 
                     renderer.render(); // Render a single frame.
                 }
-                _ => {
-                    match &self.event_callback_handler{
-                        Some(v) => {
-                            // We have a callback handler, so run it below (with our required parameters)
-                            v(event, &mut self.window);
-                        }
-                        None => {
-                            // No callback handler set, so do nothing
-                        }
-                    }
-                    
+                _ => {}
+            }
+
+            match &self.event_callback_handler{
+                Some(v) => {
+                    // We have a callback handler, so run it below (with our required parameters)
+                    v(event, &mut self.window, renderer);
+                }
+                None => {
+                    // No callback handler set, so do nothing
                 }
             }
         });
@@ -122,12 +123,12 @@ impl Window{
     /// You can define your own to handle events
     ///
     /// Button presses will still be automatically handled.
-    pub fn default_event_callback(event: Event<()>, _window: &mut window::Window){
+    pub fn default_event_callback(event: Event<()>, _window: &mut window::Window, _renderer: &mut crate::rendering::Renderer){
         println!("Event: {:?}", event);
     }
 
     /// Sets the event callback handler. This cannot be changed once the GUI is running.
-    pub fn set_event_handler(&mut self, event_handler: Box<dyn Fn(Event<()>, &mut window::Window) -> ()>){
+    pub fn set_event_handler(&mut self, event_handler: Box<dyn Fn(Event<()>, &mut window::Window, &mut crate::rendering::Renderer) -> ()>){
         self.event_callback_handler = Some(event_handler);
     }
 }
@@ -142,7 +143,7 @@ pub struct WindowBuilder{
     resolution: (u32, u32),
     title: String,
     vsync: bool,
-    fullscreen: bool,
+    screen_mode: ScreenMode,
     resizeable: bool,
     decorations: bool,
 }
@@ -154,7 +155,7 @@ impl Default for WindowBuilder{
             resolution: (800, 600),
             title: String::from("Rusty GUI"),
             vsync: true,
-            fullscreen: false,
+            screen_mode: ScreenMode::Windowed,
             resizeable: true,
             decorations: true,
             
@@ -188,8 +189,8 @@ impl WindowBuilder{
     }
 
     /// Set the fullscreen to true or false - make this enum (FULL, BORDERLESS, WINDOW)
-    pub fn set_fullscreen(&mut self, fullscreen_enabled: bool) -> &mut Self{
-        self.fullscreen = fullscreen_enabled;
+    pub fn set_screenmode(&mut self, screen_mode: ScreenMode) -> &mut Self{
+        self.screen_mode = screen_mode;
         self
     }
 
@@ -235,12 +236,15 @@ impl WindowBuilder{
         };
 
         // Check if we're running fullscreen and/or set resolutions
-        let winit_builder = match self.fullscreen{
-            true => {
+        let winit_builder = match self.screen_mode{
+            ScreenMode::Fullscreen => {
                 winit_builder.with_fullscreen(Some(window::Fullscreen::Exclusive(video_modes)))
             }
-            false => {
+            ScreenMode::Windowed => {
                 winit_builder.with_inner_size(dpi::Size::from(dpi::LogicalSize{ width: self.resolution.0, height: self.resolution.1}))
+            }
+            ScreenMode::Borderless => {
+                winit_builder.with_fullscreen(Some(window::Fullscreen::Borderless(Some(monitor))))
             }
         };
 
@@ -253,4 +257,10 @@ impl WindowBuilder{
         }
         
     }
+}
+#[derive(Debug)]
+pub enum ScreenMode{
+    Fullscreen,
+    Borderless,
+    Windowed
 }

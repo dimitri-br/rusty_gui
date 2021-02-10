@@ -44,7 +44,7 @@ impl GUI{
     }
 
     /// Sets the window event handler
-    pub fn set_event_handler(&mut self, event_handler: Box<dyn Fn(winit::event::Event<()>, &mut winit::window::Window) -> ()>){
+    pub fn set_event_handler(&mut self, event_handler: Box<dyn Fn(winit::event::Event<()>, &mut winit::window::Window, &mut crate::rendering::Renderer) -> ()>){
         self.window.set_event_handler(event_handler)
     }
 

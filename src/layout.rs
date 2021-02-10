@@ -3,7 +3,7 @@
 //! rendering allows us to swap layouts - things to render - at any point during rendering
 //! with little to no delay.
 
-use crate::components::{GUIComponent, TextGUIComponent};
+use crate::components::{EventGUIComponent, GUIComponent, TextGUIComponent};
 
 /// # Layout
 ///
@@ -11,8 +11,10 @@ use crate::components::{GUIComponent, TextGUIComponent};
 ///
 /// It stores one for regular image based GUI components,
 /// and one for rendering text based components like labels.
+/// It also stores event components, components which should check events.
 pub struct Layout{
     pub components: Vec<Box<dyn GUIComponent>>,
+    pub event_components: Vec<Box<dyn EventGUIComponent>>,
     pub text_components: Vec<Box<dyn TextGUIComponent>>,
 }
 
@@ -23,6 +25,7 @@ impl Layout{
     pub fn new() -> Self{
         Self{
             components: Vec::<Box<dyn GUIComponent>>::new(),
+            event_components: Vec::<Box<dyn EventGUIComponent>>::new(),
             text_components: Vec::<Box<dyn TextGUIComponent>>::new(),
         }
     }
@@ -31,7 +34,7 @@ impl Layout{
     pub fn add_component<T: GUIComponent + 'static>(&mut self, comp: Box<T>) -> usize{
         self.components.push(comp);
 
-        self.text_components.len() - 1
+        self.components.len() - 1
     }
 
     /// Adds a new component, Only accepts a TextGUIComponent type and return the ID (location in the vec) of the component
@@ -39,6 +42,13 @@ impl Layout{
         self.text_components.push(comp);
 
         self.text_components.len() - 1
+    }
+
+    /// Adds a new event component, Only accepts a EventGUIComponent type, and returns the ID (location in vec) of the component
+    pub fn add_event_component<T: EventGUIComponent + 'static>(&mut self, comp: Box<T>) -> usize{
+        self.event_components.push(comp);
+
+        self.event_components.len() - 1
     }
 
     /// Remove a component from the vec using the ID of the component
@@ -49,6 +59,11 @@ impl Layout{
     /// Remove a text component from the vec using the ID of the text component
     pub fn remove_text_component_by_id(&mut self, id: usize){
         self.text_components.remove(id);
+    }
+
+    /// Remove a event component from the vec using the ID of the component
+    pub fn remove_event_component_by_id(&mut self, id: usize){
+        self.event_components.remove(id);
     }
 
     /// Borrow a component (non modifiable)
@@ -69,5 +84,15 @@ impl Layout{
     /// Borrow a text component mutably
     pub fn borrow_text_component_mut(&mut self, id: usize) -> &mut Box<dyn TextGUIComponent>{
         &mut self.text_components[id]
+    }
+
+    /// Borrow a event component (non modifiable)
+    pub fn borrow_event_component(&mut self, id: usize) -> &Box<dyn EventGUIComponent>{
+        &self.event_components[id]
+    }
+
+    /// Borrow a event component mutably
+    pub fn borrow_event_component_mut(&mut self, id: usize) -> &mut Box<dyn EventGUIComponent>{
+        &mut self.event_components[id]
     }
 }

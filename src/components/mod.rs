@@ -1,3 +1,3 @@
 pub mod base_components;
 
-pub use base_components::{GUIComponent, Label, TextGUIComponent};
+pub use base_components::{GUIComponent, TextGUIComponent, EventGUIComponent, Label, Button};
