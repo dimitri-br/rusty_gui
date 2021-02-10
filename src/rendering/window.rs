@@ -7,8 +7,6 @@ use winit::{dpi, event_loop, monitor, platform::run_return::EventLoopExtRunRetur
 use winit::event_loop::ControlFlow;
 use winit::event::{WindowEvent, Event};
 
-use super::render;
-
 
 /// # Window
 ///

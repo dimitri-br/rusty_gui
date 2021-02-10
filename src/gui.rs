@@ -72,4 +72,9 @@ impl GUI{
     pub fn borrow_raw_window(&mut self) -> &mut winit::window::Window{
         &mut self.window.window
     }
+
+    /// Borrow the renderer (eg, if you require multiple fields from the renderer, it might be easier to just pass the whole struct)
+    pub fn borrow_renderer(&self) -> &Renderer{
+        &self.renderer
+    }
 }

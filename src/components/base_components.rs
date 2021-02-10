@@ -34,31 +34,30 @@ pub trait TextGUIComponent{
 ///
 /// This works like many labels in GUI libraries - renders
 /// text to the screen, using a specified size, pos and font.
-pub struct Label<S: Into<String> + Copy>{
-    content: S,
+pub struct Label{
+    content: String,
     size: f32,
     pos: [f32; 2], // x and y coords
 }
 
-impl<S: Into<String> + Copy> Label<S>{
+impl Label{
     /// Create a new `Label` struct
-    pub fn new(content: S, size: f32, pos: [f32; 2]) -> Self{
+    pub fn new<S: Into<String> + Copy>(content: S, size: f32, pos: [f32; 2]) -> Self{
         Self{
-            content,
+            content: content.into(),
             size,
             pos,
         }
     }
 }
 
-impl<S: Into<String> + Copy> TextGUIComponent for Label<S>{
+impl TextGUIComponent for Label{
     fn render_text<'a, 'b>(&'a self, brush: &'b mut wgpu_glyph::GlyphBrush<()>)
     where 'a: 'b {
-        let text: String = self.content.into();
         brush.queue(
             wgpu_glyph::Section {
                 screen_position: (self.pos[0], self.pos[1]),
-                text: vec![wgpu_glyph::Text::new(&text).with_color([0.0, 0.0, 0.0, 1.0]).with_scale(wgpu_glyph::ab_glyph::PxScale::from(self.size))],
+                text: vec![wgpu_glyph::Text::new(&self.content).with_color([0.0, 0.0, 0.0, 1.0]).with_scale(wgpu_glyph::ab_glyph::PxScale::from(self.size))],
                 layout: wgpu_glyph::Layout::default(),
                 ..wgpu_glyph::Section::default()
             }
