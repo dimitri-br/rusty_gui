@@ -68,7 +68,7 @@ fn _from_default(){
     let label = Label::new("Hello, world!", 128.0, [0.0, 0.0]);
     let label_1 = Label::new("Damn this sucks", 32.0, [200.0, 500.0]);
     let label_2 = Label::new("Big F", 64.0, [70.0, 450.0]);
-
+    
     /// Simple button
     let button = Button::new(
         Transform::new(
