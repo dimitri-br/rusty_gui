@@ -6,7 +6,7 @@
 use wgpu::util::DeviceExt;
 
 
-use crate::{rendering::Transform};
+use crate::{rendering::{QUAD, Renderer, Transform}};
 
 
 
@@ -30,7 +30,7 @@ pub trait GUIComponent{
 /// and other event driven components.
 pub trait EventGUIComponent{
     fn render<'a, 'b>(&'a self, render_pass: &'b mut wgpu::RenderPass<'a>) where 'a: 'b;
-    fn handle_event_callback(&self, event: &winit::event::Event<()>, window: &winit::window::Window);
+    fn handle_event_callback(&mut self, event: &winit::event::Event<()>, window: &winit::window::Window);
 }
 
 
@@ -103,31 +103,40 @@ impl TextGUIComponent for Label{
 ///
 /// This is designed to be a simple, no frills button. If you want to implement animated buttons,
 /// feel free to make your own components
-pub struct Button<F> where F: Fn() -> (){
+pub struct Button{
     transform: Transform, // position scale and rot
-    callback: Box<F>, // func to run when clicked
+    callback: Option<Box<dyn Fn(&winit::event::Event<()>, &bool, &mut bool) -> ()>>, // func to run when clicked
+    cursor_in_bounds: bool, // tells us if the cursor is in bounds of the button
+    vertex_buffer: wgpu::Buffer, // the vertex buffer that stores the verticies of 
+    enabled: bool,
 }
 
 
-impl<F> Button<F> where F: Fn() -> (){
-    pub fn new(transform: Transform, callback: Box<F>) -> Self{
+
+impl Button{
+    pub fn new(transform: Transform, callback: Option<Box<dyn Fn(&winit::event::Event<()>, &bool, &mut bool) -> ()>>, renderer: &Renderer) -> Self{
         Self{
             transform,
             callback,
+            cursor_in_bounds: false,
+            vertex_buffer: create_buffers(&renderer.device),
+            enabled: true,
         }
     }
-
-
 }
 
 
-impl<F> EventGUIComponent for Button<F> where F: Fn() -> (){
+impl EventGUIComponent for Button{
     fn render<'a, 'b>(&'a self, render_pass: &'b mut wgpu::RenderPass<'a>)
     where 'a: 'b {
-        // TODO
+        if self.enabled{
+            render_pass.set_bind_group(1, &self.transform.bind_group, &[]);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.draw(0..6, 0..1);
+        }
     }
 
-    fn handle_event_callback(&self, event: &winit::event::Event<()>, window: &winit::window::Window){
+    fn handle_event_callback(&mut self, event: &winit::event::Event<()>, window: &winit::window::Window){
         match event{
             winit::event::Event::WindowEvent {
                 ref event,
@@ -135,15 +144,19 @@ impl<F> EventGUIComponent for Button<F> where F: Fn() -> (){
                 ..
             } if (&window.id() == window_id) => {
                 match event{
-                    winit::event::WindowEvent::CursorMoved{position, ..} => {
-                        println!("Top left: ({:?}, {:?})", (self.transform.position.x - (self.transform.scale.x / 2.0)), (self.transform.position.y - (self.transform.scale.y / 2.0)));
-                        println!("Bottom right: ({:?}, {:?})", (self.transform.position.x + (self.transform.scale.x / 2.0)), (self.transform.position.y + (self.transform.scale.y / 2.0)));
-                        
-                        println!("Cursor pos: ({:?}, {:?}", position.x, position.y);
-                        
-                        println!("Bounds: {:?}", (((self.transform.position.x - self.transform.scale.x / 2.0) as f64) < position.x && ((self.transform.position.y - self.transform.scale.y / 2.0) as f64) < position.y) && (((self.transform.position.x + self.transform.scale.x / 2.0) as f64) > position.x && ((self.transform.position.y + self.transform.scale.y / 2.0) as f64) > position.y));
-                        if (((self.transform.position.x - self.transform.scale.x / 2.0) as f64) < position.x && ((self.transform.position.y - self.transform.scale.y / 2.0) as f64) < position.y) && (((self.transform.position.x + self.transform.scale.x / 2.0) as f64) > position.x && ((self.transform.position.y + self.transform.scale.y / 2.0) as f64) > position.y){
-                            println!("Positon {:?} in bounds!", position);
+                    winit::event::WindowEvent::CursorMoved{mut position, ..} => {
+                        // Convert window space into WGPU (dx) space
+                        position.x -= (window.inner_size().width/2) as f64;
+                        position.y -= (window.inner_size().height/2) as f64;
+
+                        // Simple and fast check for collision with mouse
+                        if     (((self.transform.position.x - ((self.transform.scale.x*2.0) * (window.inner_size().width/2) as f32) / 2.0) as f64) < position.x 
+                            && ((self.transform.position.y - ((self.transform.scale.y*2.0) * (window.inner_size().height/2) as f32) / 2.0) as f64) < position.y) 
+                            && (((self.transform.position.x + ((self.transform.scale.x*2.0) * (window.inner_size().width/2) as f32) / 2.0) as f64) > position.x 
+                            && ((self.transform.position.y + ((self.transform.scale.y*2.0) * (window.inner_size().height/2) as f32) / 2.0) as f64) > position.y){
+                            self.cursor_in_bounds = true;
+                        }else{
+                            self.cursor_in_bounds = false;
                         }
                     }
                 
@@ -153,6 +166,12 @@ impl<F> EventGUIComponent for Button<F> where F: Fn() -> (){
 
             _ => {}
         }
+        // We now callback the user callback
+        match &self.callback{
+            Some(v) => { v(event, &self.cursor_in_bounds, &mut self.enabled);},
+            None => {}
+        }
+       
     }
 }
 
@@ -168,3 +187,4 @@ pub fn create_buffers(device: &wgpu::Device) -> wgpu::Buffer{
     )
 
 }
+

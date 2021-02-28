@@ -7,9 +7,6 @@ use winit::{dpi, event_loop, monitor, platform::run_return::EventLoopExtRunRetur
 use winit::event_loop::ControlFlow;
 use winit::event::{WindowEvent, Event};
 
-use crate::components::EventGUIComponent;
-
-
 /// # Window
 ///
 /// This struct contains information for the window used in a GUI application

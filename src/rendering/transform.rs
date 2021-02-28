@@ -1,7 +1,7 @@
 //! This module contains the `Transform` struct, which defines a transformation when rendering (and in general)
 //! This can be used to translate, scale and rotate GUI components.
 
-use wgpu::Device;
+use wgpu::{BindGroup, BindGroupLayout, Device};
 use wgpu::util::DeviceExt;
 
 use cgmath::SquareMatrix;
@@ -22,6 +22,7 @@ pub struct Transform{
     value: cgmath::Matrix4::<f32>,
     uniform: TransformUniform,
     buffer: wgpu::Buffer,
+    pub bind_group: BindGroup,
 }
 impl Transform{
     /// Create a new transform. Takes in the position, rotation and scale values.
@@ -32,7 +33,8 @@ impl Transform{
 
 
         let buffer = uniform.create_uniform_buffer(device);
-
+        let bind_group = TransformUniform::create_bind_group(device, &buffer);
+        println!("{:?}", buffer);
         Self{
             position,
             rotation,
@@ -40,14 +42,19 @@ impl Transform{
             value,
             uniform,
             buffer,
+            bind_group
         }
     }
 
-
-    pub fn get_buffer(&mut self, device: &Device) -> &wgpu::Buffer{
+    pub fn update(&mut self){
         self.value = cgmath::Matrix4::from_translation(self.position) * cgmath::Matrix4::from(self.rotation) * cgmath::Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z);
         self.uniform.update(self.value);
+    }
+
+    pub fn get_buffer(&mut self, device: &Device) -> &wgpu::Buffer{
+        self.update();
         self.buffer = self.uniform.create_uniform_buffer(device);
+        self.bind_group = TransformUniform::create_bind_group(device, &self.buffer);
         &self.buffer
     }
 }
@@ -79,10 +86,40 @@ impl TransformUniform{
     pub fn create_uniform_buffer(&self, device: &Device) -> wgpu::Buffer{
         device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
-                label: Some("Rotation Uniform Buffer"),
+                label: Some("Transform"),
                 contents: bytemuck::cast_slice(&[*self]),
                 usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
             }
         )
+    }
+
+    pub fn create_bind_group_layout(device: &Device) -> BindGroupLayout{
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::VERTEX,
+                    ty: wgpu::BindingType::UniformBuffer {
+                        dynamic: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }
+            ],
+            label: Some("Transform_Bind_Layout"),
+        })
+    }
+
+    pub fn create_bind_group(device: &Device, buffer: &wgpu::Buffer) -> BindGroup{
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &TransformUniform::create_bind_group_layout(device),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(buffer.slice(..))
+                }
+            ],
+            label: Some("Transform_Bind_Group"),
+        })
     }
 }

@@ -12,7 +12,7 @@ fn event_callback_handler(event: winit::event::Event<()>, window: &mut winit::wi
 
 
     // Run event components - things like buttons and so on
-    for event_comp in renderer.layout.event_components.iter(){
+    for event_comp in renderer.layout.event_components.iter_mut(){
         event_comp.handle_event_callback(&event, &window);
     }
 }
@@ -30,6 +30,7 @@ fn main(){
     _from_default();
 }
 
+// Shows how to make a gui from scatch, without helpful constructors.
 fn _from_scratch(){
     let mut window_builder = WindowBuilder::new();
 
@@ -52,8 +53,13 @@ fn _from_scratch(){
     gui.main_loop();
 }
 
-fn test_button_func(){
-    println!("Hello, world!");
+// Simple button function that disables a button if the mouse is hovering over it
+fn test_button_func(event: &winit::event::Event<()>, cursor_in_bounds: &bool, button_enabled: &mut bool){
+    if cursor_in_bounds == &true{
+        *button_enabled = false;
+    }else{
+        *button_enabled = true;
+    }
 }
 
 // Shows how to create a simple label-based GUI from default vals
@@ -69,13 +75,15 @@ fn _from_default(){
     let label_1 = Label::new("Damn this sucks", 32.0, [200.0, 500.0]);
     let label_2 = Label::new("Big F", 64.0, [70.0, 450.0]);
     
-    /// Simple button
+    /// Simple button, with callback
     let button = Button::new(
         Transform::new(
-            cgmath::Vector3::<f32>::new(300.0, 350.0, 0.0), 
+            cgmath::Vector3::<f32>::new(0.0, 0.0, 0.0), 
             cgmath::Quaternion::<f32>::new(0.0, 0.0, 0.0, 0.0), 
-            cgmath::Vector3::<f32>::new(75.0, 75.0, 10.0,), gui.borrow_render_device()), 
-        Box::new(test_button_func));
+            cgmath::Vector3::<f32>::new(0.2, 0.2, 0.2), gui.borrow_render_device()), 
+        Some(Box::new(test_button_func)),
+                gui.borrow_renderer()
+            );
 
     // Add the components to the layout - the order only matters if you want the components to render in a specific way
     // Text will ALWAYS be rendered on top of everything else, that is something to fix

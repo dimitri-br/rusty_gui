@@ -4,9 +4,11 @@
 //! and render it to the screen as a quad. This module does little more than,
 //! render!
 
-use wgpu::util::StagingBelt;
+use wgpu::{BindGroup, Device, util::StagingBelt};
 
 use crate::layout::Layout;
+
+use super::TransformUniform;
 
 /// # Renderer
 ///
@@ -26,6 +28,8 @@ pub struct Renderer{
     glyph_brush: wgpu_glyph::GlyphBrush<()>,
 
     pub layout: Layout,    
+
+    camera: Camera,
 }
 
 
@@ -89,6 +93,9 @@ impl Renderer{
             .build(&device, wgpu::TextureFormat::Bgra8UnormSrgb);
 
         let layout = Layout::new();
+
+        let camera = Camera::new(0.1, 750.0, &device, &sc_desc);
+
         Self{
             surface,
             device,
@@ -101,6 +108,7 @@ impl Renderer{
             staging_belt,
             glyph_brush,
             layout,
+            camera
         }
     }
 
@@ -110,7 +118,10 @@ impl Renderer{
         let render_pipeline_layout =
        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
            label: Some("Render Pipeline Layout"),
-           bind_group_layouts: &[],
+           bind_group_layouts: &[
+               &TransformUniform::create_bind_group_layout(device),
+               &TransformUniform::create_bind_group_layout(device)
+           ],
            push_constant_ranges: &[],
         });
 
@@ -189,6 +200,8 @@ impl Renderer{
             label: Some("Render Encoder"),
         });   
 
+        self.camera.update(&self.sc_desc);
+
         {
             // Pre pass
             // Main pass - Render all our shaders and objects to the screen
@@ -199,9 +212,9 @@ impl Renderer{
                         resolve_target: None,
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Clear(wgpu::Color {
-                                r: 1.0,
-                                g: 1.0,
-                                b: 1.0,
+                                r: 0.5,
+                                g: 0.5,
+                                b: 0.5,
                                 a: 1.0,
                             }),
                             store: true,
@@ -214,6 +227,13 @@ impl Renderer{
             render_pass.set_pipeline(&self.render_pipeline);
 
             for comp in self.layout.components.iter(){
+                let buffer = 
+                render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
+                comp.render(&mut render_pass);
+            }
+
+            for comp in self.layout.event_components.iter(){
+                render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
                 comp.render(&mut render_pass);
             }
         
@@ -228,8 +248,8 @@ impl Renderer{
         }
 
         self.staging_belt.finish();
-         // submit will accept anything that implements IntoIter
-         self.queue.submit(std::iter::once(encoder.finish()));
+        // submit will accept anything that implements IntoIter
+        self.queue.submit(std::iter::once(encoder.finish()));
     }
 }
 
@@ -282,3 +302,132 @@ pub const QUAD: &[Vertex] = &[
     Vertex { position: [1.0, 1.0, 0.0], tex_coords: [0.0, 0.0], }, // A
     
 ]; 
+
+
+use cgmath::{Matrix4, SquareMatrix};
+use wgpu::util::DeviceExt;
+#[derive(Debug)]
+pub struct Camera {
+    pub near: f32,
+    pub far: f32,
+
+    pub width: u32,
+    pub height: u32,
+
+    camera_uniform: CameraUniform,
+    buffer: wgpu::Buffer,
+
+    bind_group: BindGroup,
+}
+
+#[rustfmt::skip]
+pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
+    1.0, 0.0, 0.0, 0.0,
+    0.0, 1.0, 0.0, 0.0,
+    0.0, 0.0, 0.5, 0.0,
+    0.0, 0.0, 0.5, 1.0,
+);
+
+
+impl Camera {
+    pub fn new(near: f32, far: f32, device: &Device, sc_desc: &wgpu::SwapChainDescriptor) -> Self{
+        let mut camera_uniform = CameraUniform::new();
+        let proj = cgmath::ortho(0.0, sc_desc.width as f32, sc_desc.height as f32, 0.0, 0.0, 1000.0);
+        camera_uniform.update_view_proj(proj);
+        let buffer = camera_uniform.create_uniform_buffer(device);
+        let bind_group = CameraUniform::create_bind_group(device, &buffer);
+        Self{
+            near,
+            far,
+            width: 0,
+            height: 0,
+            camera_uniform,
+            buffer,
+            bind_group,
+        }
+    }
+    pub fn build_view_projection_matrix(&mut self, sc_desc: &wgpu::SwapChainDescriptor) -> cgmath::Matrix4<f32>{
+        self.width = sc_desc.width;
+        self.height = sc_desc.height;
+        // 1.
+        // 2.
+        let proj = cgmath::ortho(0.0, self.width as f32, self.height as f32, 0.0, 0.0, 1000.0);
+
+        let view = cgmath::Matrix4::<f32>::look_at_rh(
+            cgmath::Point3::<f32>::new(0.0, 0.0, 5.0), 
+            cgmath::Point3::<f32>::new(0.0, 0.0, 0.0), 
+            cgmath::Vector3::<f32>::new(0.0, 1.0, 0.0)
+        );
+        
+        // 3.
+        return (OPENGL_TO_WGPU_MATRIX * (proj * view));
+    }
+
+    pub fn update(&mut self, sc_desc: &wgpu::SwapChainDescriptor){
+        let value = self.build_view_projection_matrix(sc_desc);
+        self.camera_uniform.update_view_proj(value);
+    }
+}
+
+ 
+
+
+// We need this for Rust to store our data correctly for the shaders
+#[repr(C)]
+// This is so we can store this in a buffer
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct CameraUniform{
+    pub proj: [[f32; 4]; 4],
+}
+
+impl CameraUniform{
+    pub fn new() -> Self {
+        Self {
+            proj: cgmath::Matrix4::identity().into(),
+        }
+    }
+
+    pub fn update_view_proj(&mut self, proj: Matrix4<f32>) {
+        self.proj = proj.into();
+    }
+
+    pub fn create_uniform_buffer(&self, device: &Device) -> wgpu::Buffer{
+        device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Uniform Buffer"),
+                contents: bytemuck::cast_slice(&[*self]),
+                usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+            }
+        )
+    }
+
+    pub fn create_bind_group_layout(device: &Device) -> wgpu::BindGroupLayout{
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::VERTEX,
+                    ty: wgpu::BindingType::UniformBuffer {
+                        dynamic: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }
+            ],
+            label: Some("Transform_Bind_Layout"),
+        })
+    }
+
+    pub fn create_bind_group(device: &Device, buffer: &wgpu::Buffer) -> wgpu::BindGroup{
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &CameraUniform::create_bind_group_layout(device),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(buffer.slice(..))
+                }
+            ],
+            label: Some("Transform_Bind_Group"),
+        })
+    }
+}
