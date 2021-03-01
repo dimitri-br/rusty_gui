@@ -6,6 +6,9 @@
 use crate::{layout::Layout, rendering::{Window, WindowBuilder, Renderer}};
 use futures::executor::block_on;
 
+use winit::event_loop::ControlFlow;
+use winit::event::{WindowEvent, Event};
+
 pub struct GUI{
     pub window: Window,
     pub renderer: Renderer,
@@ -38,9 +41,16 @@ impl GUI{
 // This part just has some helpful functions to simplify adding components
 // and managing the GUI. Still needs a lot more functionality
 impl GUI{
-    /// Runs mainloop on this structs window field
-    pub fn main_loop(&mut self){
-        self.window.main_loop(&mut self.renderer);
+    /// The main loop of the application. This function will loop until the window is closed.
+    ///
+    /// It'll render the screen (GUI contents), draw text and check inputs (Which can be setup by the user with custom input handlers).
+    /// 
+    /// For example, a user can create a callback to handle a keyboard input. Examples and setup to come
+    ///
+    /// We should also implement a basic check for buttons to check where the cursor is and automatically handle button callbacks if the
+    /// user doesn't want to implement callbacks themselves.
+    pub fn main_loop(self){
+        main_loop(self);
     }
 
     /// Sets the window event handler
@@ -77,4 +87,98 @@ impl GUI{
     pub fn borrow_renderer(&self) -> &Renderer{
         &self.renderer
     }
+}
+
+
+/// This function consumes a GUI struct and loops until application exit
+/// 
+/// This loop does NOT return once started
+/// 
+/// This workaround was also required as I had a lot of issues with references
+fn main_loop(gui: GUI){
+    let mut renderer = gui.renderer;
+    let mut window = gui.window.window;
+    let mut event_loop = gui.window.event_loop;
+    let event_loop_handler = gui.window.event_callback_handler;
+
+    event_loop.take().unwrap().run(move |event, _, control_flow| {
+        // ControlFlow::Wait pauses the event loop if no events are available to process.
+        // This is ideal for non-game applications that only update in response to user
+        // input, and uses significantly less power/CPU time than ControlFlow::Poll.
+        *control_flow = ControlFlow::Wait;
+        
+        match event {
+            // This part checks for a window event, then checks if its either an exit or resize
+            // all other window events will be up to the user
+            Event::WindowEvent {
+                    ref event,
+                    window_id,
+                } if window_id == window.id() =>  {
+                    match event{
+                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                    WindowEvent::KeyboardInput {
+                        input,
+                        ..
+                    } => {
+                        match input {
+                            winit::event::KeyboardInput {
+                                state: winit::event::ElementState::Pressed,
+                                virtual_keycode: Some(winit::event::VirtualKeyCode::Escape),
+                                ..
+                            } => {    
+                                *control_flow = ControlFlow::Exit
+                            },
+                            _ => {}
+                        }
+                    },
+                    WindowEvent::Resized(physical_size) => {
+                        renderer.resize(*physical_size);
+                    }
+                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        // new_inner_size is &&mut so we have to dereference it twice
+                        renderer.resize(**new_inner_size);
+                    },
+                    
+                    _ => {}
+                }
+            }
+
+            Event::MainEventsCleared => {
+                // Application update code.
+    
+                // Queue a RedrawRequested event.
+                //
+                // You only need to call this if you've determined that you need to redraw, in
+                // applications which do not always need to. Applications that redraw continuously
+                // can just render here instead.
+                window.request_redraw();
+            }
+            Event::RedrawRequested(_) => {
+                // Redraw the application.
+                //
+                // It's preferable for applications that do not render continuously to render in
+                // this event rather than in MainEventsCleared, since rendering in here allows
+                // the program to gracefully handle redraws requested by the OS.
+
+                renderer.render(); // Render a single frame.
+            }
+            _ => {}
+        }
+
+        match &event_loop_handler{
+            Some(v) => {
+                // We have a callback handler, so run it below (with our required parameters)
+                v(&event, &mut window, &mut renderer);
+            }
+            None => {
+                // No callback handler set, so do nothing
+            }
+        }
+
+        // Run event components - things like buttons and so on
+        for event_comp in renderer.layout.event_components.iter_mut(){
+            event_comp.handle_event_callback(&event, &mut window);
+        }
+
+    });
 }

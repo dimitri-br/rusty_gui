@@ -4,17 +4,17 @@
 
 // We use block_on as Renderer creation requires async, but our app isn't configured to use async.
 use futures::executor::block_on;
-use rusty_gui::{components::{Button, Label}, gui::GUI, layout::Layout, rendering::{Renderer, ScreenMode, Transform, WindowBuilder}};
+use rusty_gui::{components::{Button, Label}, gui::{GUI}, layout::Layout, rendering::{Renderer, ScreenMode, Transform, WindowBuilder}};
 
 
 /// A simple callback handler. Shows how it works, so you can extend it
-fn event_callback_handler(event: &winit::event::Event<()>, window: &mut winit::window::Window, renderer: &mut rusty_gui::rendering::Renderer){
+fn event_callback_handler(_event: &winit::event::Event<()>, _window: &mut winit::window::Window, _renderer: &mut rusty_gui::rendering::Renderer){
     // Handle events
 }
 
 fn main(){
     // Choose to either build the window and renderer ourselves and pass it to a GUI,
-    // or build the GUI with default values and change them through the window.
+    // or build the GUI with default values and change them through the window
 
     // Uncomment choice.
 
