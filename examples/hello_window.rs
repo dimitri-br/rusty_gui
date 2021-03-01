@@ -1,25 +1,18 @@
+#![windows_subsystem="windows"] // This disables the console in the finished app
 //! Simple example that shows how to get a window up and running,
 //! with some basic event callbacks
 
 // We use block_on as Renderer creation requires async, but our app isn't configured to use async.
 use futures::executor::block_on;
-use rusty_gui::{components::{Button, EventGUIComponent, Label}, gui::GUI, layout::Layout, rendering::{Renderer, ScreenMode, Transform, WindowBuilder}};
+use rusty_gui::{components::{Button, Label}, gui::GUI, layout::Layout, rendering::{Renderer, ScreenMode, Transform, WindowBuilder}};
 
 
 /// A simple callback handler. Shows how it works, so you can extend it
-fn event_callback_handler(event: winit::event::Event<()>, window: &mut winit::window::Window, renderer: &mut rusty_gui::rendering::Renderer){
+fn event_callback_handler(event: &winit::event::Event<()>, window: &mut winit::window::Window, renderer: &mut rusty_gui::rendering::Renderer){
     // Handle events
-
-
-    // Run event components - things like buttons and so on
-    for event_comp in renderer.layout.event_components.iter_mut(){
-        event_comp.handle_event_callback(&event, &window);
-    }
 }
 
 fn main(){
-    println!("Starting!");
-
     // Choose to either build the window and renderer ourselves and pass it to a GUI,
     // or build the GUI with default values and change them through the window.
 
@@ -34,7 +27,13 @@ fn main(){
 fn _from_scratch(){
     let mut window_builder = WindowBuilder::new();
 
-    let mut window = window_builder.set_screenmode(ScreenMode::Borderless).set_resolution((800, 600)).set_title("Hello Window!").set_vsync(true).build();
+    let mut window = window_builder
+        .set_screenmode(ScreenMode::Borderless)
+        .set_resolution((800, 600))
+        .set_title("Hello Window!")
+        .set_vsync(true)
+        .build()
+        .unwrap();
 
     window.set_event_handler(Box::new(event_callback_handler));
 
@@ -54,7 +53,7 @@ fn _from_scratch(){
 }
 
 // Simple button function that disables a button if the mouse is hovering over it
-fn test_button_func(event: &winit::event::Event<()>, cursor_in_bounds: &bool, button_enabled: &mut bool){
+fn test_button_func(_event: &winit::event::Event<()>, cursor_in_bounds: &bool, button_enabled: &mut bool){
     if cursor_in_bounds == &true{
         *button_enabled = false;
     }else{
@@ -75,7 +74,7 @@ fn _from_default(){
     let label_1 = Label::new("Damn this sucks", 32.0, [200.0, 500.0]);
     let label_2 = Label::new("Big F", 64.0, [70.0, 450.0]);
     
-    /// Simple button, with callback
+    // Simple button, with callback
     let button = Button::new(
         Transform::new(
             cgmath::Vector3::<f32>::new(0.0, 0.0, 0.0), 

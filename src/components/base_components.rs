@@ -6,7 +6,7 @@
 use wgpu::util::DeviceExt;
 
 
-use crate::{rendering::{QUAD, Renderer, Transform}};
+use crate::{rendering::{Renderer, Transform}};
 
 
 
@@ -149,7 +149,8 @@ impl EventGUIComponent for Button{
                         position.x -= (window.inner_size().width/2) as f64;
                         position.y -= (window.inner_size().height/2) as f64;
 
-                        // Simple and fast check for collision with mouse
+                        // Simple and fast check for collision with mouse - I don't know how I got these values,
+                        // I was trying anything to see what stuck
                         if     (((self.transform.position.x - ((self.transform.scale.x*2.0) * (window.inner_size().width/2) as f32) / 2.0) as f64) < position.x 
                             && ((self.transform.position.y - ((self.transform.scale.y*2.0) * (window.inner_size().height/2) as f32) / 2.0) as f64) < position.y) 
                             && (((self.transform.position.x + ((self.transform.scale.x*2.0) * (window.inner_size().width/2) as f32) / 2.0) as f64) > position.x 

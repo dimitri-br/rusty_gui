@@ -13,7 +13,7 @@ pub struct GUI{
 
 impl Default for GUI{
     fn default() -> GUI{
-        let window = WindowBuilder::new().set_resolution((800, 600)).set_title("Rusty GUI app").build();
+        let window = WindowBuilder::new().set_resolution((800, 600)).set_title("Rusty GUI app").build().expect("Error building window");
         let renderer = block_on(Renderer::new(&window.window));
         GUI{
             window: window,
@@ -44,7 +44,7 @@ impl GUI{
     }
 
     /// Sets the window event handler
-    pub fn set_event_handler(&mut self, event_handler: Box<dyn Fn(winit::event::Event<()>, &mut winit::window::Window, &mut crate::rendering::Renderer) -> ()>){
+    pub fn set_event_handler(&mut self, event_handler: Box<dyn Fn(&winit::event::Event<()>, &mut winit::window::Window, &mut crate::rendering::Renderer) -> ()>){
         self.window.set_event_handler(event_handler)
     }
 

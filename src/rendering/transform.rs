@@ -34,7 +34,6 @@ impl Transform{
 
         let buffer = uniform.create_uniform_buffer(device);
         let bind_group = TransformUniform::create_bind_group(device, &buffer);
-        println!("{:?}", buffer);
         Self{
             position,
             rotation,

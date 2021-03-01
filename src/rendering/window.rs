@@ -2,7 +2,17 @@
 //! it should make it easier to access input, modify the window and access window variables
 //! for the user of the library and the developer
 
-use winit::{dpi, event_loop, monitor, platform::run_return::EventLoopExtRunReturn, window};
+use winit::{dpi, event_loop::{self, EventLoop}, monitor, platform::{run_return::EventLoopExtRunReturn}, window};
+
+#[cfg(target_os = "linux")]
+use winit::platform::unix::EventLoopExtUnix;
+
+#[cfg(target_os = "macos")]
+use winit::platform::unix::EventLoopExtUnix;
+
+#[cfg(target_os = "windows")]
+use winit::platform::windows::EventLoopExtWindows;
+
 
 use winit::event_loop::ControlFlow;
 use winit::event::{WindowEvent, Event};
@@ -22,7 +32,7 @@ use winit::event::{WindowEvent, Event};
 pub struct Window{
     pub window: window::Window,
     pub event_loop: Option<event_loop::EventLoop<()>>,
-    pub event_callback_handler: Option<Box<dyn Fn(Event<()>, &mut window::Window, &mut crate::rendering::Renderer) -> ()>>,
+    pub event_callback_handler: Option<Box<dyn Fn(&Event<()>, &mut window::Window, &mut crate::rendering::Renderer) -> ()>>,
 }
 
 
@@ -106,12 +116,18 @@ impl Window{
             match &self.event_callback_handler{
                 Some(v) => {
                     // We have a callback handler, so run it below (with our required parameters)
-                    v(event, &mut self.window, renderer);
+                    v(&event, &mut self.window, renderer);
                 }
                 None => {
                     // No callback handler set, so do nothing
                 }
             }
+
+            // Run event components - things like buttons and so on
+            for event_comp in renderer.layout.event_components.iter_mut(){
+                event_comp.handle_event_callback(&event, &mut self.window);
+            }
+
         });
     }
 
@@ -120,12 +136,12 @@ impl Window{
     /// You can define your own to handle events
     ///
     /// Button presses will still be automatically handled.
-    pub fn default_event_callback(event: Event<()>, _window: &mut window::Window, _renderer: &mut crate::rendering::Renderer){
+    pub fn default_event_callback(event: &Event<()>, _window: &mut window::Window, _renderer: &mut crate::rendering::Renderer){
         println!("Event: {:?}", event);
     }
 
     /// Sets the event callback handler. This cannot be changed once the GUI is running.
-    pub fn set_event_handler(&mut self, event_handler: Box<dyn Fn(Event<()>, &mut window::Window, &mut crate::rendering::Renderer) -> ()>){
+    pub fn set_event_handler(&mut self, event_handler: Box<dyn Fn(&Event<()>, &mut window::Window, &mut crate::rendering::Renderer) -> ()>){
         self.event_callback_handler = Some(event_handler);
     }
 }
@@ -204,14 +220,14 @@ impl WindowBuilder{
     }
 
     /// Build the window and return a Window
-    pub fn build(&mut self) -> Window{
+    pub fn build(&mut self) -> Result<Window, &'static str>{
         // Create our winit WindowBuilder
         let winit_builder = window::WindowBuilder::new();
 
                 
         // Create an event loop
         let mut event_loop = event_loop::EventLoop::new();
-
+        
   
         // Gather information about the monitor and video modes for fullscreen and stuff
         let mut x = 0;
@@ -247,14 +263,79 @@ impl WindowBuilder{
 
         
         // Build the window
-        Window{
+        Ok(Window{
             window: winit_builder.with_resizable(self.resizeable).with_decorations(self.decorations).with_title(&self.title).build(&mut event_loop).expect("Failed to build window!"),
             event_loop: Some(event_loop),
             event_callback_handler: Some(Box::new(Window::default_event_callback)),
-        }
+        })
+        
+    }
+
+    pub unsafe fn build_unsafe(&mut self) -> Result<Window, &'static str>{
+        // Create our winit WindowBuilder
+        let winit_builder = window::WindowBuilder::new();
+
+        let mut event_loop: EventLoop<()> = build_unsafe_event_loop(); // Build a new event loop that can run on other threads (ie, multithreading support)
+        
+  
+        // Gather information about the monitor and video modes for fullscreen and stuff
+        let mut x = 0;
+        let mut monitor: Vec<monitor::MonitorHandle> = event_loop.available_monitors().filter(|_| if x == 0 { x += 1; true }else{ false }).collect();
+        let monitor = monitor.swap_remove(0);
+        
+        let mut x = 0;
+        let mut video_modes: Vec<monitor::VideoMode> = monitor.video_modes().filter(|_| if x == 0 { x += 1; true }else{ false }).collect();
+        let video_modes = video_modes.swap_remove(0);
+
+        // Vsync mode - refresh rate
+        let _vsync_mode = match self.vsync{
+            true => {
+                wgpu::PresentMode::Fifo
+            }
+            false => {
+                wgpu::PresentMode::Mailbox
+            }
+        };
+
+        // Check if we're running fullscreen and/or set resolutions
+        let winit_builder = match self.screen_mode{
+            ScreenMode::Fullscreen => {
+                winit_builder.with_fullscreen(Some(window::Fullscreen::Exclusive(video_modes)))
+            }
+            ScreenMode::Windowed => {
+                winit_builder.with_inner_size(dpi::Size::from(dpi::LogicalSize{ width: self.resolution.0, height: self.resolution.1}))
+            }
+            ScreenMode::Borderless => {
+                winit_builder.with_fullscreen(Some(window::Fullscreen::Borderless(Some(monitor))))
+            }
+        };
+
+        
+        // Build the window
+        Ok(Window{
+            window: winit_builder.with_resizable(self.resizeable).with_decorations(self.decorations).with_title(&self.title).build(&mut event_loop).expect("Failed to build window!"),
+            event_loop: Some(event_loop),
+            event_callback_handler: Some(Box::new(Window::default_event_callback)),
+        })
         
     }
 }
+
+#[cfg(target_os = "linux")]
+unsafe fn build_unsafe_event_loop() -> EventLoop<()>{
+    EventLoopExtUnix::new_any_thread()
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn build_unsafe_event_loop() -> EventLoop<()>{
+    EventLoopExtUnix::new_any_thread()
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn build_unsafe_event_loop() -> EventLoop<()>{
+    EventLoopExtWindows::new_any_thread()
+}
+
 #[derive(Debug)]
 pub enum ScreenMode{
     Fullscreen,

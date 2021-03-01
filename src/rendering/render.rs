@@ -227,7 +227,6 @@ impl Renderer{
             render_pass.set_pipeline(&self.render_pipeline);
 
             for comp in self.layout.components.iter(){
-                let buffer = 
                 render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
                 comp.render(&mut render_pass);
             }
@@ -360,7 +359,7 @@ impl Camera {
         );
         
         // 3.
-        return (OPENGL_TO_WGPU_MATRIX * (proj * view));
+        return OPENGL_TO_WGPU_MATRIX * (proj * view);
     }
 
     pub fn update(&mut self, sc_desc: &wgpu::SwapChainDescriptor){
