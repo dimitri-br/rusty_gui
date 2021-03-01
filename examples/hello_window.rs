@@ -2,8 +2,6 @@
 //! Simple example that shows how to get a window up and running,
 //! with some basic event callbacks
 
-use std::slice::Windows;
-
 // We use block_on as Renderer creation requires async, but our app isn't configured to use async.
 use futures::executor::block_on;
 use rusty_gui::{components::{Button, Label}, gui::{GUI}, layout::Layout, rendering::{Renderer, ScreenMode, Transform, WindowBuilder}};
