@@ -4,8 +4,8 @@
 //! and render it to the screen as a quad. This module does little more than,
 //! render!
 
-use bytemuck::offset_of;
-use wgpu::{BindGroup, BindingType, DepthStencilState, Device, MultisampleState, PipelineLayout, PrimitiveState, VertexAttribute, util::StagingBelt};
+
+use wgpu::{BindGroup, Device, MultisampleState, PrimitiveState, util::StagingBelt};
 
 use crate::layout::Layout;
 

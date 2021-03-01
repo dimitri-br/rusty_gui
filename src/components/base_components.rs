@@ -4,6 +4,7 @@
 //! so that the crate remains as modular and user extendable as possible.
 
 use wgpu::util::DeviceExt;
+use winit::window::Window;
 
 
 use crate::{rendering::{Renderer, Transform}};
@@ -105,7 +106,7 @@ impl TextGUIComponent for Label{
 /// feel free to make your own components
 pub struct Button{
     transform: Transform, // position scale and rot
-    callback: Option<Box<dyn Fn(&winit::event::Event<()>, &bool, &mut bool) -> ()>>, // func to run when clicked
+    callback: Option<Box<dyn Fn(&winit::event::Event<()>, &Window, &bool, &mut bool) -> ()>>, // func to run when clicked
     cursor_in_bounds: bool, // tells us if the cursor is in bounds of the button
     vertex_buffer: wgpu::Buffer, // the vertex buffer that stores the verticies of 
     enabled: bool,
@@ -114,7 +115,7 @@ pub struct Button{
 
 
 impl Button{
-    pub fn new(transform: Transform, callback: Option<Box<dyn Fn(&winit::event::Event<()>, &bool, &mut bool) -> ()>>, renderer: &Renderer) -> Self{
+    pub fn new(transform: Transform, callback: Option<Box<dyn Fn(&winit::event::Event<()>, &Window, &bool, &mut bool) -> ()>>, renderer: &Renderer) -> Self{
         Self{
             transform,
             callback,
@@ -169,7 +170,7 @@ impl EventGUIComponent for Button{
         }
         // We now callback the user callback
         match &self.callback{
-            Some(v) => { v(event, &self.cursor_in_bounds, &mut self.enabled);},
+            Some(v) => { v(event, &window, &self.cursor_in_bounds, &mut self.enabled);},
             None => {}
         }
        

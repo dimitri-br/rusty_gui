@@ -2,9 +2,12 @@
 //! Simple example that shows how to get a window up and running,
 //! with some basic event callbacks
 
+use std::slice::Windows;
+
 // We use block_on as Renderer creation requires async, but our app isn't configured to use async.
 use futures::executor::block_on;
 use rusty_gui::{components::{Button, Label}, gui::{GUI}, layout::Layout, rendering::{Renderer, ScreenMode, Transform, WindowBuilder}};
+use winit::event::Event;
 
 
 /// A simple callback handler. Shows how it works, so you can extend it
@@ -52,10 +55,28 @@ fn _from_scratch(){
     gui.main_loop();
 }
 
-// Simple button function that disables a button if the mouse is hovering over it
-fn test_button_func(_event: &winit::event::Event<()>, cursor_in_bounds: &bool, button_enabled: &mut bool){
+// Simple button function that disables a button if the mouse is hovering and clicking over it
+fn test_button_func(event: &winit::event::Event<()>, window: &winit::window::Window, cursor_in_bounds: &bool, button_enabled: &mut bool){
     if cursor_in_bounds == &true{
-        *button_enabled = false;
+        match event{
+            Event::WindowEvent{
+                ref event,
+                window_id
+            } if window_id == &window.id() => {
+                match event{
+                    winit::event::WindowEvent::MouseInput{
+                        button: winit::event::MouseButton::Left,
+
+                        ..
+                    } => {
+                        *button_enabled = !*button_enabled;
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+        
     }else{
         *button_enabled = true;
     }
