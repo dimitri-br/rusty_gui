@@ -9,7 +9,7 @@ use winit::window::Window;
 
 use crate::{rendering::{Renderer, Transform}};
 
-
+use std::{any::Any, usize};
 
 /// # GUIComponent
 ///
@@ -25,6 +25,8 @@ use crate::{rendering::{Renderer, Transform}};
 /// Lastly, the user should define a new function to easily create a new struct.
 pub trait GUIComponent{
     fn render<'a, 'b>(&'a self, render_pass: &'b mut wgpu::RenderPass<'a>) where 'a: 'b;
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 /// Similar to the `GUIComponent`, except every event gets passed to the component. Useful for buttons
@@ -32,6 +34,8 @@ pub trait GUIComponent{
 pub trait EventGUIComponent{
     fn render<'a, 'b>(&'a self, render_pass: &'b mut wgpu::RenderPass<'a>) where 'a: 'b;
     fn handle_event_callback(&mut self, event: &winit::event::Event<()>, window: &winit::window::Window);
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 
@@ -39,6 +43,8 @@ pub trait EventGUIComponent{
 /// Exists because labels require it.
 pub trait TextGUIComponent{
     fn render_text<'a, 'b>(&'a self, brush: &'b mut wgpu_glyph::GlyphBrush<()>) where 'a: 'b;
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 // This part now shows some of the base components, and may help when designing your own custom components
@@ -53,7 +59,8 @@ pub struct Label{
     size: f32,
     pos: [f32; 2], // x and y coords
 
-    alignment: (wgpu_glyph::VerticalAlign, wgpu_glyph::HorizontalAlign)
+    alignment: (wgpu_glyph::VerticalAlign, wgpu_glyph::HorizontalAlign),
+    enabled: bool,
 }
 
 impl Label{
@@ -63,7 +70,8 @@ impl Label{
             content: content.into(),
             size,
             pos,
-            alignment: (wgpu_glyph::VerticalAlign::Top, wgpu_glyph::HorizontalAlign::Left)
+            alignment: (wgpu_glyph::VerticalAlign::Top, wgpu_glyph::HorizontalAlign::Left),
+            enabled: true,
         }
     }
 
@@ -76,20 +84,39 @@ impl Label{
     pub fn align_horizontal(&mut self, alignment: wgpu_glyph::HorizontalAlign){
         self.alignment.1 = alignment;
     }
+
+    pub fn enable(&mut self){
+        self.enabled = true;
+    }
+
+    pub fn disable(&mut self){
+        self.enabled = false;
+    }
 }
 
 impl TextGUIComponent for Label{
     fn render_text<'a, 'b>(&'a self, brush: &'b mut wgpu_glyph::GlyphBrush<()>)
     where 'a: 'b {
-        brush.queue(
-            wgpu_glyph::Section {
-                screen_position: (self.pos[0], self.pos[1]),
-                text: vec![wgpu_glyph::Text::new(&self.content).with_color([0.0, 0.0, 0.0, 1.0]).with_scale(wgpu_glyph::ab_glyph::PxScale::from(self.size))],
-                layout: wgpu_glyph::Layout::default().v_align(self.alignment.0).h_align(self.alignment.1),
-                ..wgpu_glyph::Section::default()
-            }
-            
-        )
+        if self.enabled{
+            brush.queue(
+                wgpu_glyph::Section {
+                    screen_position: (self.pos[0], self.pos[1]),
+                    text: vec![wgpu_glyph::Text::new(&self.content).with_color([0.0, 0.0, 0.0, 1.0]).with_scale(wgpu_glyph::ab_glyph::PxScale::from(self.size))],
+                    layout: wgpu_glyph::Layout::default().v_align(self.alignment.0).h_align(self.alignment.1),
+                    ..wgpu_glyph::Section::default()
+                }
+                
+            )
+        }
+        println!("Label enabled: {:?}", self.enabled);
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
@@ -108,20 +135,38 @@ pub struct Button{
     transform: Transform, // position scale and rot
     callback: Option<Box<dyn Fn(&winit::event::Event<()>, &Window, &bool, &mut bool) -> ()>>, // func to run when clicked
     cursor_in_bounds: bool, // tells us if the cursor is in bounds of the button
-    vertex_buffer: wgpu::Buffer, // the vertex buffer that stores the verticies of 
+    vertex_buffer: wgpu::Buffer, // the vertex buffer that stores the verticies of,
     enabled: bool,
+    attached_text_id: Option<usize>,
 }
 
 
 
 impl Button{
-    pub fn new(transform: Transform, callback: Option<Box<dyn Fn(&winit::event::Event<()>, &Window, &bool, &mut bool) -> ()>>, renderer: &Renderer) -> Self{
+    pub fn new(transform: Transform, callback: Option<Box<dyn Fn(&winit::event::Event<()>, &Window, &bool, &mut bool) -> ()>>, renderer: &Renderer, mut text: Option<&mut Label>, attached_text_id: Option<usize>) -> Self{
+        if text.is_some(){
+            text.take().unwrap().pos = [(transform.position.x + (renderer.sc_desc.width/2) as f32), (transform.position.y + (renderer.sc_desc.height/2) as f32)];
+        }
         Self{
             transform,
             callback,
             cursor_in_bounds: false,
             vertex_buffer: create_buffers(&renderer.device),
             enabled: true,
+            attached_text_id
+        }
+    }
+
+    pub fn enable(&mut self){
+        self.enabled = true;
+    }
+    pub fn disable(&mut self){
+        self.enabled = false;
+    }
+
+    pub fn set_text(&mut self, mut text: Option<&'static mut Label>, renderer: &Renderer){
+        if text.is_some(){
+            text.take().unwrap().pos = [(self.transform.position.x + (renderer.sc_desc.width/2) as f32), (self.transform.position.y + (renderer.sc_desc.height/2) as f32)];
         }
     }
 }
@@ -172,8 +217,25 @@ impl EventGUIComponent for Button{
         match &self.callback{
             Some(v) => { v(event, &window, &self.cursor_in_bounds, &mut self.enabled);},
             None => {}
-        }
+        };
+
+        // If we have some text, then enable and disable according to our button (as text shouldn't be enabled if the button isn't)
+        /*if self.text.is_some(){
+            match self.enabled{
+                true => self.text.take().unwrap().enable(),
+                false => self.text.take().unwrap().disable(),
+            };
+            println!("Button enabled: -> {:?}", self.enabled);
+        }*/
        
+    }
+
+    fn as_any(&self) -> &dyn Any{
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }
 

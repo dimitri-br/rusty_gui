@@ -1,4 +1,4 @@
-#![windows_subsystem="windows"] // This disables the console in the finished app
+//#![windows_subsystem="windows"] // This disables the console in the finished app
 //! Simple example that shows how to get a window up and running,
 //! with some basic event callbacks
 
@@ -6,12 +6,14 @@
 use futures::executor::block_on;
 use rusty_gui::{components::{Button, Label}, gui::{GUI}, layout::Layout, rendering::{Renderer, ScreenMode, Transform, WindowBuilder}};
 use winit::event::Event;
-
+use wgpu_glyph::{HorizontalAlign, VerticalAlign};
 
 /// A simple callback handler. Shows how it works, so you can extend it
-fn event_callback_handler(_event: &winit::event::Event<()>, _window: &mut winit::window::Window, _renderer: &mut rusty_gui::rendering::Renderer){
+fn event_callback_handler(_event: &winit::event::Event<()>, window: &mut winit::window::Window, _renderer: &mut rusty_gui::rendering::Renderer){
     // Handle events
+    window.set_title("Now running!");
 }
+
 
 fn main(){
     // Choose to either build the window and renderer ourselves and pass it to a GUI,
@@ -64,7 +66,6 @@ fn test_button_func(event: &winit::event::Event<()>, window: &winit::window::Win
                 match event{
                     winit::event::WindowEvent::MouseInput{
                         button: winit::event::MouseButton::Left,
-
                         ..
                     } => {
                         *button_enabled = !*button_enabled;
@@ -92,16 +93,12 @@ fn _from_default(){
     let label = Label::new("Hello, world!", 128.0, [0.0, 0.0]);
     let label_1 = Label::new("Damn this sucks", 32.0, [200.0, 500.0]);
     let label_2 = Label::new("Big F", 64.0, [70.0, 450.0]);
+
+    let mut text_label = Box::new(Label::new("This is button text", 16.0, [250.0, 250.0]));
+    text_label.align_horizontal(HorizontalAlign::Center);
+    text_label.align_vertical(VerticalAlign::Center);
     
-    // Simple button, with callback
-    let button = Button::new(
-        Transform::new(
-            cgmath::Vector3::<f32>::new(0.0, 0.0, 0.0), 
-            cgmath::Quaternion::<f32>::new(0.0, 0.0, 0.0, 0.0), 
-            cgmath::Vector3::<f32>::new(0.2, 0.2, 0.2), gui.borrow_render_device()), 
-        Some(Box::new(test_button_func)),
-                gui.borrow_renderer()
-            );
+
 
     // Add the components to the layout - the order only matters if you want the components to render in a specific way
     // Text will ALWAYS be rendered on top of everything else, that is something to fix
@@ -109,11 +106,27 @@ fn _from_default(){
     layout.add_text_component(Box::new(label_2));
     layout.add_text_component(Box::new(label_1));
 
-    layout.add_event_component(Box::new(button));
+
+    let button_label_id = layout.add_text_component(text_label);
+    // Simple button, with callback
+    let button = Button::new(
+        Transform::new(
+            cgmath::Vector3::<f32>::new(0.0, 0.0, 0.0), 
+            cgmath::Quaternion::<f32>::new(0.0, 0.0, 0.0, 0.0), 
+            cgmath::Vector3::<f32>::new(0.2, 0.2, 0.2), gui.borrow_render_device()), 
+        Some(Box::new(test_button_func)),
+                gui.borrow_renderer(),
+                Some(layout.borrow_text_component_as_type_mut::<Label>(button_label_id).unwrap()),
+                Some(button_label_id)
+            );
+
+    let _button_id= layout.add_event_component(Box::new(button));
+
 
     // Set the renderer render layout to our layout - this will consume our layout, so to access it,
     // use `gui.borrow_render_layout()`
     gui.set_render_layout(layout);
+
 
     // This shows how we can access the winit window to modify values directly
     gui.borrow_raw_window().set_title("Hello window!");

@@ -3,6 +3,7 @@
 //! rendering allows us to swap layouts - things to render - at any point during rendering
 //! with little to no delay.
 
+
 use crate::components::{EventGUIComponent, GUIComponent, TextGUIComponent};
 
 /// # Layout
@@ -67,8 +68,17 @@ impl Layout{
     }
 
     /// Borrow a component (non modifiable)
-    pub fn borrow_component(&mut self, id: usize) -> &Box<dyn GUIComponent>{
+    pub fn borrow_component(&self, id: usize) -> &Box<dyn GUIComponent>{
         &self.components[id]
+    }
+
+    /// Borrow a component as a type (non modifiable)
+    pub fn borrow_component_as_type<T: GUIComponent + 'static>(&self, id: usize) -> Result<&T, &'static str>{
+        let comp = self.components.get(id).take().unwrap();
+        if let Some(downcast) = comp.as_any().downcast_ref::<T>(){
+            return Ok(downcast);
+        }
+        return Err("Error, failed to downcast!");
     }
 
     /// Borrow a component mutably
@@ -76,9 +86,27 @@ impl Layout{
         &mut self.components[id]
     }
 
+    /// Borrow a component as a type (modifiable)
+    pub fn borrow_component_as_type_mut<T: GUIComponent + 'static>(&mut self, id: usize) -> Result<&mut T, &'static str>{
+        let comp = self.components.get_mut(id).take().unwrap();
+        if let Some(downcast) = comp.as_any_mut().downcast_mut::<T>(){
+            return Ok(downcast);
+        }
+        return Err("Error, failed to downcast!");
+    }
+
     /// Borrow a text component (non modifiable)
     pub fn borrow_text_component(&mut self, id: usize) -> &Box<dyn TextGUIComponent>{
         &self.text_components[id]
+    }
+
+    /// Borrow a text component as a type (non modifiable)
+    pub fn borrow_text_component_as_type<T: TextGUIComponent + 'static>(&self, id: usize) -> Result<&T, &'static str>{
+        let comp = self.text_components.get(id).take().unwrap();
+        if let Some(downcast) = comp.as_any().downcast_ref::<T>(){
+            return Ok(downcast);
+        }
+        return Err("Error, failed to downcast!");
     }
 
     /// Borrow a text component mutably
@@ -86,13 +114,40 @@ impl Layout{
         &mut self.text_components[id]
     }
 
+    /// Borrow a text component as a type (modifiable)
+    pub fn borrow_text_component_as_type_mut<T: TextGUIComponent + 'static>(&mut self, id: usize) -> Result<&mut T, &'static str>{
+        let comp = self.text_components.get_mut(id).take().unwrap();
+        if let Some(downcast) = comp.as_any_mut().downcast_mut::<T>(){
+            return Ok(downcast);
+        }
+        return Err("Error, failed to downcast!");
+    }
+
     /// Borrow a event component (non modifiable)
     pub fn borrow_event_component(&mut self, id: usize) -> &Box<dyn EventGUIComponent>{
         &self.event_components[id]
     }
 
+    /// Borrow a event component as a type (non modifiable)
+    pub fn borrow_event_component_as_type<T: EventGUIComponent + 'static>(&self, id: usize) -> Result<&T, &'static str>{
+        let comp = self.event_components.get(id).take().unwrap();
+        if let Some(downcast) = comp.as_any().downcast_ref::<T>(){
+            return Ok(downcast);
+        }
+        return Err("Error, failed to downcast!");
+    }
+
     /// Borrow a event component mutably
     pub fn borrow_event_component_mut(&mut self, id: usize) -> &mut Box<dyn EventGUIComponent>{
         &mut self.event_components[id]
+    }
+
+    /// Borrow a event component as a type (modifiable)
+    pub fn borrow_event_component_as_type_mut<T: EventGUIComponent + 'static>(&mut self, id: usize) -> Result<&mut T, &'static str>{
+        let comp = self.event_components.get_mut(id).take().unwrap();
+        if let Some(downcast) = comp.as_any_mut().downcast_mut::<T>(){
+            return Ok(downcast);
+        }
+        return Err("Error, failed to downcast!");
     }
 }

@@ -178,6 +178,7 @@ fn main_loop(gui: GUI){
         // Run event components - things like buttons and so on
         for event_comp in renderer.layout.event_components.iter_mut(){
             event_comp.handle_event_callback(&event, &mut window);
+            
         }
 
     });
