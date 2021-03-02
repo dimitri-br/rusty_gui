@@ -7,9 +7,9 @@ use wgpu::util::DeviceExt;
 use winit::window::Window;
 
 
-use crate::{rendering::{Renderer, Transform}};
+use crate::{layout::Layout, rendering::{Renderer, Transform}};
 
-use std::{any::Any, usize};
+use std::{any::Any};
 
 /// # GUIComponent
 ///
@@ -27,6 +27,9 @@ pub trait GUIComponent{
     fn render<'a, 'b>(&'a self, render_pass: &'b mut wgpu::RenderPass<'a>) where 'a: 'b;
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
+    fn get_text_id(&self) -> Option<usize>;
+    fn is_enabled(&self) -> bool;
+    fn get_pos(&self) -> [f32; 2];
 }
 
 /// Similar to the `GUIComponent`, except every event gets passed to the component. Useful for buttons
@@ -36,6 +39,9 @@ pub trait EventGUIComponent{
     fn handle_event_callback(&mut self, event: &winit::event::Event<()>, window: &winit::window::Window);
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
+    fn get_text_id(&self) -> Option<usize>;
+    fn is_enabled(&self) -> bool;
+    fn get_pos(&self) -> [f32; 2];
 }
 
 
@@ -92,6 +98,10 @@ impl Label{
     pub fn disable(&mut self){
         self.enabled = false;
     }
+
+    pub fn set_pos(&mut self, pos: [f32; 2], screen_dim: (u32, u32)){
+        self.pos = [(pos[0] + (screen_dim.0/2) as f32), (pos[1] + (screen_dim.1/2) as f32)];
+    }
 }
 
 impl TextGUIComponent for Label{
@@ -108,7 +118,6 @@ impl TextGUIComponent for Label{
                 
             )
         }
-        println!("Label enabled: {:?}", self.enabled);
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -143,17 +152,14 @@ pub struct Button{
 
 
 impl Button{
-    pub fn new(transform: Transform, callback: Option<Box<dyn Fn(&winit::event::Event<()>, &Window, &bool, &mut bool) -> ()>>, renderer: &Renderer, mut text: Option<&mut Label>, attached_text_id: Option<usize>) -> Self{
-        if text.is_some(){
-            text.take().unwrap().pos = [(transform.position.x + (renderer.sc_desc.width/2) as f32), (transform.position.y + (renderer.sc_desc.height/2) as f32)];
-        }
+    pub fn new(transform: Transform, callback: Option<Box<dyn Fn(&winit::event::Event<()>, &Window, &bool, &mut bool) -> ()>>, renderer: &Renderer, attached_text_id: Option<usize>) -> Self{
         Self{
             transform,
             callback,
             cursor_in_bounds: false,
             vertex_buffer: create_buffers(&renderer.device),
             enabled: true,
-            attached_text_id
+            attached_text_id: attached_text_id
         }
     }
 
@@ -164,10 +170,14 @@ impl Button{
         self.enabled = false;
     }
 
-    pub fn set_text(&mut self, mut text: Option<&'static mut Label>, renderer: &Renderer){
-        if text.is_some(){
-            text.take().unwrap().pos = [(self.transform.position.x + (renderer.sc_desc.width/2) as f32), (self.transform.position.y + (renderer.sc_desc.height/2) as f32)];
+    pub fn update_text(&self, layout: &mut Layout, screen_dim: (u32, u32)){
+        if self.attached_text_id.is_some(){
+            layout.borrow_text_component_as_type_mut::<Label>(self.attached_text_id.unwrap()).unwrap().pos = [(self.transform.position.x + (screen_dim.0 / 2) as f32), (self.transform.position.y + (screen_dim.1 / 2) as f32)];
         }
+    }
+
+    pub fn has_text(&self) -> bool{
+        self.attached_text_id.is_some()
     }
 }
 
@@ -217,17 +227,7 @@ impl EventGUIComponent for Button{
         match &self.callback{
             Some(v) => { v(event, &window, &self.cursor_in_bounds, &mut self.enabled);},
             None => {}
-        };
-
-        // If we have some text, then enable and disable according to our button (as text shouldn't be enabled if the button isn't)
-        /*if self.text.is_some(){
-            match self.enabled{
-                true => self.text.take().unwrap().enable(),
-                false => self.text.take().unwrap().disable(),
-            };
-            println!("Button enabled: -> {:?}", self.enabled);
-        }*/
-       
+        };       
     }
 
     fn as_any(&self) -> &dyn Any{
@@ -236,6 +236,18 @@ impl EventGUIComponent for Button{
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn get_text_id(&self) -> Option<usize> {
+        self.attached_text_id
+    }
+
+    fn is_enabled(&self) -> bool{
+        self.enabled
+    }
+
+    fn get_pos(&self) -> [f32; 2]{
+        [self.transform.position.x, self.transform.position.y]
     }
 }
 

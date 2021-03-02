@@ -5,9 +5,12 @@
 //! render!
 
 
+
+
+
 use wgpu::{BindGroup, Device, MultisampleState, PrimitiveState, util::StagingBelt};
 
-use crate::layout::Layout;
+use crate::{components::{Label}, layout::{Layout}};
 
 use super::TransformUniform;
 
@@ -191,6 +194,36 @@ impl Renderer{
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
     }
 
+    /// This should run BEFORE we render. This lets us set up last minute values
+    /// and update our layout before we render
+    pub fn prepass(&mut self){
+        let mut text_child_components = Vec::<(usize, bool, [f32; 2])>::new();
+        let components = &self.layout.components;
+        for i in 0..components.len(){
+            let comp = &components[i];
+            if let Some(id) = comp.get_text_id(){
+                text_child_components.push((id, comp.is_enabled(), comp.get_pos()));
+            }
+        }
+        let components = &self.layout.event_components;
+        for i in 0..components.len() {
+            let comp = &components[i];
+            if let Some(id) = comp.get_text_id(){
+                text_child_components.push((id, comp.is_enabled(), comp.get_pos()));
+            }
+        }
+
+        for (id, enabled, pos) in text_child_components.iter(){
+            let text = self.layout.borrow_text_component_as_type_mut::<Label>(*id).unwrap();
+            text.set_pos(*pos, (self.sc_desc.width, self.sc_desc.height));
+            if *enabled{
+                text.enable();
+            }else{
+                text.disable();
+            }
+        }
+    }
+
     /// Render a single frame 
     pub fn render(&mut self){
         let frame = self.swap_chain.get_current_frame().unwrap().output;
@@ -226,16 +259,24 @@ impl Renderer{
 
             render_pass.set_pipeline(&self.render_pipeline);
 
-            for comp in self.layout.components.iter(){
-                render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
-                comp.render(&mut render_pass);
-            }
 
-            for comp in self.layout.event_components.iter(){
-                render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
-                comp.render(&mut render_pass);
+
+            {   
+                let components = &self.layout.components;
+                for i in 0..components.len(){
+                    let comp = &components[i];
+                    render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
+                    comp.render(&mut render_pass);
+                }
             }
-        
+            {
+                let components = &self.layout.event_components;
+                for i in 0..components.len() {
+                    let comp = &components[i];
+                    render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
+                    comp.render(&mut render_pass);
+                }
+            } 
         }
 
         for text_comp in self.layout.text_components.iter(){

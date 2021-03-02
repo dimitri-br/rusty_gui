@@ -159,7 +159,7 @@ fn main_loop(gui: GUI){
                 // It's preferable for applications that do not render continuously to render in
                 // this event rather than in MainEventsCleared, since rendering in here allows
                 // the program to gracefully handle redraws requested by the OS.
-
+                renderer.prepass(); // Update the layout and stuff
                 renderer.render(); // Render a single frame.
             }
             _ => {}

@@ -94,20 +94,17 @@ fn _from_default(){
     let label_1 = Label::new("Damn this sucks", 32.0, [200.0, 500.0]);
     let label_2 = Label::new("Big F", 64.0, [70.0, 450.0]);
 
-    let mut text_label = Box::new(Label::new("This is button text", 16.0, [250.0, 250.0]));
-    text_label.align_horizontal(HorizontalAlign::Center);
-    text_label.align_vertical(VerticalAlign::Center);
-    
-
-
     // Add the components to the layout - the order only matters if you want the components to render in a specific way
     // Text will ALWAYS be rendered on top of everything else, that is something to fix
     layout.add_text_component(Box::new(label));
     layout.add_text_component(Box::new(label_2));
     layout.add_text_component(Box::new(label_1));
 
+    let mut text_label = Label::new("This is button text", 16.0, [250.0, 250.0]);
+    text_label.align_horizontal(HorizontalAlign::Center);
+    text_label.align_vertical(VerticalAlign::Center);
 
-    let button_label_id = layout.add_text_component(text_label);
+    let text_label_id = layout.add_text_component(Box::new(text_label));
     // Simple button, with callback
     let button = Button::new(
         Transform::new(
@@ -116,8 +113,7 @@ fn _from_default(){
             cgmath::Vector3::<f32>::new(0.2, 0.2, 0.2), gui.borrow_render_device()), 
         Some(Box::new(test_button_func)),
                 gui.borrow_renderer(),
-                Some(layout.borrow_text_component_as_type_mut::<Label>(button_label_id).unwrap()),
-                Some(button_label_id)
+                Some(text_label_id),
             );
 
     let _button_id= layout.add_event_component(Box::new(button));
