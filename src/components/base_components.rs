@@ -159,7 +159,7 @@ impl Button{
             cursor_in_bounds: false,
             vertex_buffer: create_buffers(&renderer.device),
             enabled: true,
-            attached_text_id: attached_text_id
+            attached_text_id
         }
     }
 

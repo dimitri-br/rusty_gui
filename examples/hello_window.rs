@@ -100,23 +100,29 @@ fn _from_default(){
     layout.add_text_component(Box::new(label_2));
     layout.add_text_component(Box::new(label_1));
 
+    // We now define the text to render with the button
     let mut text_label = Label::new("This is button text", 16.0, [250.0, 250.0]);
     text_label.align_horizontal(HorizontalAlign::Center);
     text_label.align_vertical(VerticalAlign::Center);
-
+    // We add the text to our layout - make sure we grab the ID!
     let text_label_id = layout.add_text_component(Box::new(text_label));
-    // Simple button, with callback
+
+    // Simple button, with callback. Use our text ID here
     let button = Button::new(
         Transform::new(
             cgmath::Vector3::<f32>::new(0.0, 0.0, 0.0), 
             cgmath::Quaternion::<f32>::new(0.0, 0.0, 0.0, 0.0), 
-            cgmath::Vector3::<f32>::new(0.2, 0.2, 0.2), gui.borrow_render_device()), 
-        Some(Box::new(test_button_func)),
-                gui.borrow_renderer(),
-                Some(text_label_id),
-            );
+            cgmath::Vector3::<f32>::new(0.2, 0.2, 0.2), gui.borrow_render_device()),
 
-    let _button_id= layout.add_event_component(Box::new(button));
+        Some(Box::new(test_button_func)),
+
+                gui.borrow_renderer(),
+
+Some(text_label_id),
+    );
+
+    // Add the button to the layout
+    layout.add_event_component(Box::new(button));
 
 
     // Set the renderer render layout to our layout - this will consume our layout, so to access it,
