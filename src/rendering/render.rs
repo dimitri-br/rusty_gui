@@ -8,11 +8,11 @@
 
 
 
-use wgpu::{BindGroup, Device, VertexStateDescriptor, util::StagingBelt};
+use wgpu::{BindGroup, Device, ShaderStage, util::StagingBelt};
 
 use crate::{components::{Label}, layout::{Layout}};
 
-use super::TransformUniform;
+use super::{UniformUtils};
 
 /// # Renderer
 ///
@@ -45,7 +45,7 @@ impl Renderer{
 
 
         // Create a new instance with the best api (VULKAN, DX12/DX11 or METAL)
-        let instance = wgpu::Instance::new(wgpu::BackendBit::DX11);
+        let instance = wgpu::Instance::new(wgpu::BackendBit::VULKAN);
 
         // Create a surface (like a link to the winit window)
         
@@ -123,8 +123,8 @@ impl Renderer{
        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
            label: Some("Render Pipeline Layout"),
            bind_group_layouts: &[
-               &TransformUniform::create_bind_group_layout(device),
-               &TransformUniform::create_bind_group_layout(device)
+               &UniformUtils::create_bind_group_layout(device, 0, wgpu::ShaderStage::VERTEX, false, None, "Some bidn group layout"),
+               &UniformUtils::create_bind_group_layout(device, 0, wgpu::ShaderStage::VERTEX, false, None, "Some bidn group layout")
            ],
            push_constant_ranges: &[],
         });
@@ -344,8 +344,7 @@ pub const QUAD: &[Vertex] = &[
 ]; 
 
 
-use cgmath::{Matrix4, SquareMatrix, num_traits::PrimInt};
-use wgpu::util::DeviceExt;
+use cgmath::{Matrix4, SquareMatrix};
 #[derive(Debug)]
 pub struct Camera {
     pub near: f32,
@@ -374,8 +373,9 @@ impl Camera {
         let mut camera_uniform = CameraUniform::new();
         let proj = cgmath::ortho(0.0, sc_desc.width as f32, sc_desc.height as f32, 0.0, 0.0, 1000.0);
         camera_uniform.update_view_proj(proj);
-        let buffer = camera_uniform.create_uniform_buffer(device);
-        let bind_group = CameraUniform::create_bind_group(device, &buffer);
+        let buffer = UniformUtils::create_uniform_buffer(device, &camera_uniform);
+        let layout = UniformUtils::create_bind_group_layout(device, 0, ShaderStage::VERTEX, false, None, "Camera layout");
+        let bind_group = UniformUtils::create_bind_group(device, &layout, 0, &buffer, "Camera bind group");
         Self{
             near,
             far,
@@ -431,43 +431,4 @@ impl CameraUniform{
         self.proj = proj.into();
     }
 
-    pub fn create_uniform_buffer(&self, device: &Device) -> wgpu::Buffer{
-        device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Uniform Buffer"),
-                contents: bytemuck::cast_slice(&[*self]),
-                usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-            }
-        )
-    }
-
-    pub fn create_bind_group_layout(device: &Device) -> wgpu::BindGroupLayout{
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX,
-                    ty: wgpu::BindingType::UniformBuffer {
-                        dynamic: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }
-            ],
-            label: Some("Transform_Bind_Layout"),
-        })
-    }
-
-    pub fn create_bind_group(device: &Device, buffer: &wgpu::Buffer) -> wgpu::BindGroup{
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &CameraUniform::create_bind_group_layout(device),
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(buffer.slice(..))
-                }
-            ],
-            label: Some("Transform_Bind_Group"),
-        })
-    }
 }

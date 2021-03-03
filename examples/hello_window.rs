@@ -5,13 +5,13 @@
 // We use block_on as Renderer creation requires async, but our app isn't configured to use async.
 use futures::executor::block_on;
 use rusty_gui::{components::{Button, Label}, gui::{GUI}, layout::Layout, rendering::{Renderer, ScreenMode, Transform, WindowBuilder}};
-use winit::event::Event;
+use winit::event::{ElementState, Event};
 use wgpu_glyph::{HorizontalAlign, VerticalAlign};
 
 /// A simple callback handler. Shows how it works, so you can extend it
 fn event_callback_handler(_event: &winit::event::Event<()>, window: &mut winit::window::Window, _renderer: &mut rusty_gui::rendering::Renderer){
     // Handle events
-    window.set_title("Now running!");
+    
 }
 
 
@@ -66,10 +66,16 @@ fn test_button_func(event: &winit::event::Event<()>, window: &winit::window::Win
                 match event{
                     winit::event::WindowEvent::MouseInput{
                         button: winit::event::MouseButton::Left,
+                        state, 
                         ..
                     } => {
-                        println!("Button pressed!");
-                        *_button_enabled = !*_button_enabled;
+                        if state == &ElementState::Pressed{
+                            println!("Button pressed!");
+                            *_button_enabled = false;
+                        }else{
+                            println!("Button released!");
+                            *_button_enabled = true;
+                        }
                     }
                     _ => {}
                 }

@@ -1,10 +1,11 @@
 //! This module contains the `Transform` struct, which defines a transformation when rendering (and in general)
 //! This can be used to translate, scale and rotate GUI components.
 
-use wgpu::{BindGroup, BindGroupLayout, Device};
-use wgpu::util::DeviceExt;
+use wgpu::{BindGroup, Device, ShaderStage};
 
 use cgmath::SquareMatrix;
+
+use super::UniformUtils;
 
 
 #[rustfmt::skip]
@@ -31,9 +32,8 @@ impl Transform{
         let mut uniform = TransformUniform::new();
         uniform.update(value);
 
-
-        let buffer = uniform.create_uniform_buffer(device);
-        let bind_group = TransformUniform::create_bind_group(device, &buffer);
+        let (buffer, bind_group, _) = UniformUtils::create(device, ShaderStage::VERTEX, 0, &uniform, "Transform");
+        
         Self{
             position,
             rotation,
@@ -45,15 +45,22 @@ impl Transform{
         }
     }
 
+    /// Force an update to the transformation matrix. This is implicitly called when rendering, so is only necessary if you need to use it before a frame is drawn.
     pub fn update(&mut self){
         self.value = cgmath::Matrix4::from_translation(self.position) * cgmath::Matrix4::from(self.rotation) * cgmath::Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z);
         self.uniform.update(self.value);
     }
 
     pub fn get_buffer(&mut self, device: &Device) -> &wgpu::Buffer{
-        self.update();
-        self.buffer = self.uniform.create_uniform_buffer(device);
-        self.bind_group = TransformUniform::create_bind_group(device, &self.buffer);
+        let value: [[f32; 4]; 4] = self.value.into();
+
+        if  value != self.uniform.transform{
+            self.update();
+            let (buffer, bind_group, _) = UniformUtils::create(device, ShaderStage::VERTEX, 0, &self.uniform, "Transform");
+            self.buffer = buffer;
+            self.bind_group = bind_group;
+        }
+
         &self.buffer
     }
 }
@@ -80,45 +87,5 @@ impl TransformUniform{
         let value = value * OPENGL_TO_WGPU_MATRIX;
         self.transform = value.into();
         
-    }
-
-    pub fn create_uniform_buffer(&self, device: &Device) -> wgpu::Buffer{
-        device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Transform"),
-                contents: bytemuck::cast_slice(&[*self]),
-                usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-            }
-        )
-    }
-
-    pub fn create_bind_group_layout(device: &Device) -> BindGroupLayout{
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX,
-                    ty: wgpu::BindingType::UniformBuffer {
-                        dynamic: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }
-            ],
-            label: Some("Transform_Bind_Layout"),
-        })
-    }
-
-    pub fn create_bind_group(device: &Device, buffer: &wgpu::Buffer) -> BindGroup{
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &TransformUniform::create_bind_group_layout(device),
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(buffer.slice(..))
-                }
-            ],
-            label: Some("Transform_Bind_Group"),
-        })
     }
 }

@@ -115,6 +115,24 @@ fn main_loop(gui: GUI){
         // This is ideal for non-game applications that only update in response to user
         // input, and uses significantly less power/CPU time than ControlFlow::Poll.
         *control_flow = ControlFlow::WaitUntil(Instant::now().checked_add(Duration::from_millis(10)).unwrap());
+
+        if !minimized{
+            // Run event components - things like buttons and so on
+            for event_comp in renderer.layout.event_components.iter_mut(){
+                event_comp.handle_event_callback(&event, &mut window);
+            }
+        }
+
+        match &event_loop_handler{
+            Some(v) => {
+                // We have a callback handler, so run it below (with our required parameters)
+                v(&event, &mut window, &mut renderer);
+            }
+            None => {
+                // No callback handler set, so do nothing
+            }
+        }
+
         match event {
             // This part checks for a window event, then checks if its either an exit or resize
             // all other window events will be up to the user
@@ -124,21 +142,6 @@ fn main_loop(gui: GUI){
                 } if window_id == window.id() =>  {
                     match event{
                     WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                    WindowEvent::KeyboardInput {
-                        input,
-                        ..
-                    } => {
-                        match input {
-                            winit::event::KeyboardInput {
-                                state: winit::event::ElementState::Pressed,
-                                virtual_keycode: Some(winit::event::VirtualKeyCode::Escape),
-                                ..
-                            } => {    
-                                *control_flow = ControlFlow::Exit
-                            },
-                            _ => {}
-                        }
-                    },
                     WindowEvent::Resized(physical_size) => {
                         renderer.resize(*physical_size);
                         if renderer.size.width == 0 && renderer.size.height == 0{
@@ -155,12 +158,7 @@ fn main_loop(gui: GUI){
                         }else{
                             minimized = false;
                         }
-                    },
-
-                    WindowEvent::Moved(phys_pos) => {
-                        println!("Window moved to: {:?}", phys_pos);
-                    }
-                
+                    },              
                     
                     _ => {}
                 }
@@ -188,23 +186,5 @@ fn main_loop(gui: GUI){
             }
             _ => {}
         }
-
-        match &event_loop_handler{
-            Some(v) => {
-                // We have a callback handler, so run it below (with our required parameters)
-                v(&event, &mut window, &mut renderer);
-            }
-            None => {
-                // No callback handler set, so do nothing
-            }
-        }
-
-        if !minimized{
-            // Run event components - things like buttons and so on
-            for event_comp in renderer.layout.event_components.iter_mut(){
-                event_comp.handle_event_callback(&event, &mut window);
-            }
-        }
-
     });
 }

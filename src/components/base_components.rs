@@ -9,7 +9,7 @@ use winit::window::Window;
 
 use crate::{layout::Layout, rendering::{Renderer, Transform}};
 
-use std::{any::Any};
+use std::{any::Any, time::Instant};
 
 /// # GUIComponent
 ///
@@ -193,6 +193,8 @@ impl EventGUIComponent for Button{
     }
 
     fn handle_event_callback(&mut self, event: &winit::event::Event<()>, window: &winit::window::Window){
+        let curr_time = Instant::now();
+
         match event{
             winit::event::Event::WindowEvent {
                 ref event,
@@ -207,14 +209,18 @@ impl EventGUIComponent for Button{
 
                         // Simple and fast check for collision with mouse - I don't know how I got these values,
                         // I was trying anything to see what stuck
-                        if     (((self.transform.position.x - ((self.transform.scale.x*2.0) * (window.inner_size().width/2) as f32) / 2.0) as f64) < position.x 
-                            && ((self.transform.position.y - ((self.transform.scale.y*2.0) * (window.inner_size().height/2) as f32) / 2.0) as f64) < position.y) 
-                            && (((self.transform.position.x + ((self.transform.scale.x*2.0) * (window.inner_size().width/2) as f32) / 2.0) as f64) > position.x 
-                            && ((self.transform.position.y + ((self.transform.scale.y*2.0) * (window.inner_size().height/2) as f32) / 2.0) as f64) > position.y){
-                            self.cursor_in_bounds = true;
+                        if ((self.transform.position.x - ((self.transform.scale.x*2.0) * (window.inner_size().width/2) as f32) / 2.0) as f64) < position.x 
+                        && ((self.transform.position.y - ((self.transform.scale.y*2.0) * (window.inner_size().height/2) as f32) / 2.0) as f64) < position.y{
+                            self.cursor_in_bounds = ((self.transform.position.x + ((self.transform.scale.x*2.0) * (window.inner_size().width/2) as f32) / 2.0) as f64) > position.x 
+                                                 && ((self.transform.position.y + ((self.transform.scale.y*2.0) * (window.inner_size().height/2) as f32) / 2.0) as f64) > position.y;
+
                         }else{
                             self.cursor_in_bounds = false;
                         }
+        
+                                    
+
+                        
                     }
                 
                     _ => {}
@@ -228,6 +234,8 @@ impl EventGUIComponent for Button{
             Some(v) => { v(event, &window, &self.cursor_in_bounds, &mut self.enabled);},
             None => {}
         };       
+
+        //println!("Check time: {:?}", Instant::now() - curr_time);
     }
 
     fn as_any(&self) -> &dyn Any{
