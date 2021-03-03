@@ -96,8 +96,9 @@ fn _from_default(){
     // Add the components to the layout - the order only matters if you want the components to render in a specific way
     // Text will ALWAYS be rendered on top of everything else, that is something to fix
     layout.add_text_component(Box::new(label));
-    layout.add_text_component(Box::new(label_2));
     layout.add_text_component(Box::new(label_1));
+    layout.add_text_component(Box::new(label_2));
+
 
     // We now define the text to render with the button
     let mut text_label = Label::new("This is button text", 24.0, [250.0, 250.0]);

@@ -98,10 +98,9 @@ impl TransformUniform{
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStage::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        has_dynamic_offset: false,
+                    ty: wgpu::BindingType::UniformBuffer {
+                        dynamic: false,
                         min_binding_size: None,
-                        ty: wgpu::BufferBindingType::Uniform
                     },
                     count: None,
                 }
@@ -116,7 +115,7 @@ impl TransformUniform{
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: buffer.as_entire_binding()
+                    resource: wgpu::BindingResource::Buffer(buffer.slice(..))
                 }
             ],
             label: Some("Transform_Bind_Group"),

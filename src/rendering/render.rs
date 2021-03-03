@@ -8,7 +8,7 @@
 
 
 
-use wgpu::{BindGroup, Device, MultisampleState, PrimitiveState, util::StagingBelt};
+use wgpu::{BindGroup, Device, VertexStateDescriptor, util::StagingBelt};
 
 use crate::{components::{Label}, layout::{Layout}};
 
@@ -44,7 +44,7 @@ impl Renderer{
         let size = window.inner_size();
 
 
-        // Create a new instance with the best api (VULKAN, DX12 or METAL)
+        // Create a new instance with the best api (VULKAN, DX12/DX11 or METAL)
         let instance = wgpu::Instance::new(wgpu::BackendBit::DX11);
 
         // Create a surface (like a link to the winit window)
@@ -67,7 +67,7 @@ impl Renderer{
             &wgpu::DeviceDescriptor {
                 features: wgpu::Features::default(),
                 limits: wgpu::Limits::default(),
-                label: Some("Device Descriptor"),
+                shader_validation: true,
             },
             None, // Trace path
         ).await.unwrap();
@@ -75,7 +75,7 @@ impl Renderer{
         // We define what a swapchain should be - eg, its usage, format (RGB, BGR)
         // size, width and present mode - vsync on or off for example.
         let sc_desc = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
             width: size.width,
             height: size.height,
@@ -87,7 +87,7 @@ impl Renderer{
 
         let render_pipeline = Renderer::create_render_pipeline(&device);
 
-        let staging_belt = StagingBelt::new(2048);
+        let staging_belt = StagingBelt::new(512);
 
         
         let font = wgpu_glyph::ab_glyph::FontArc::try_from_slice(include_bytes!("../../fonts/FingerPaint-Regular.ttf"))
@@ -130,59 +130,61 @@ impl Renderer{
         });
 
         // Create our shader modules
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/shader.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/shader.frag.spv"));
+        let vs_module = device.create_shader_module(wgpu::include_spirv!("../../shaders/shader.vert.spv"));
+        let fs_module = device.create_shader_module(wgpu::include_spirv!("../../shaders/shader.frag.spv"));
 
         // Create the pipeline. We define it - we're rendering a GUI, so it doesn't matter much
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
+            vertex_stage: wgpu::ProgrammableStageDescriptor {
                 module: &vs_module,
                 entry_point: "main", // 1.
-                buffers: &[Vertex::desc()]
             },
-            fragment: Some(wgpu::FragmentState { // 2.
+            fragment_stage: Some(wgpu::ProgrammableStageDescriptor { // 2.
                 module: &fs_module,
                 entry_point: "main",
-                targets: &[
-                    wgpu::ColorTargetState {
-                        format: wgpu::TextureFormat::Bgra8UnormSrgb,
-                        color_blend: wgpu::BlendState {
-                            src_factor: wgpu::BlendFactor::SrcAlpha,
-                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                            operation: wgpu::BlendOperation::Add
-                        },
-                        alpha_blend: wgpu::BlendState {
-                            src_factor: wgpu::BlendFactor::One,
-                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                            operation: wgpu::BlendOperation::Add
-                        },
-                        //color_blend: wgpu::BlendDescriptor::REPLACE,
-                        //alpha_blend: wgpu::BlendDescriptor::REPLACE,
-                        write_mask: wgpu::ColorWrite::ALL
-                    }
-                ],
             }),
+            rasterization_state: Some(
+                wgpu::RasterizationStateDescriptor {
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: wgpu::CullMode::Back,
+                    depth_bias: 0,
+                    depth_bias_slope_scale: 0.0,
+                    depth_bias_clamp: 0.0,
+                    clamp_depth: false,
+                }
+            ),
+            color_states: &[
+                wgpu::ColorStateDescriptor {
+                    format: wgpu::TextureFormat::Bgra8UnormSrgb,
+                    color_blend: wgpu::BlendDescriptor {
+                        src_factor: wgpu::BlendFactor::SrcAlpha,
+                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        operation: wgpu::BlendOperation::Add
+                    },
+                    alpha_blend: wgpu::BlendDescriptor {
+                        src_factor: wgpu::BlendFactor::One,
+                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        operation: wgpu::BlendOperation::Add
+                    },
+                    //color_blend: wgpu::BlendDescriptor::REPLACE,
+                    //alpha_blend: wgpu::BlendDescriptor::REPLACE,
+                    write_mask: wgpu::ColorWrite::ALL
+                }
+            ],
 
-            primitive: PrimitiveState{
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: Some(wgpu::IndexFormat::Uint32),
+            primitive_topology: wgpu::PrimitiveTopology::TriangleList, // 1.
 
-                front_face: wgpu::FrontFace::Ccw,
+            depth_stencil_state: None,
 
-                cull_mode: wgpu::CullMode::Back,
-
-                polygon_mode: wgpu::PolygonMode::Fill,
+            vertex_state: wgpu::VertexStateDescriptor {
+                index_format: wgpu::IndexFormat::Uint32,
+                vertex_buffers: &[Vertex::desc()],
             },
-
-            depth_stencil: None,
-
-            multisample: MultisampleState{
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: true
-            },
+            sample_count: 1, // 5.
+            sample_mask: !0, // 6.
+            alpha_to_coverage_enabled: true, // 7.
         })
     }
 
@@ -251,7 +253,6 @@ impl Renderer{
                     },
                 ],
                 depth_stencil_attachment: None,
-                label: Some("render pass descriptor"),
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
@@ -308,18 +309,18 @@ pub struct Vertex {
 
 impl Vertex {
     /// Create a description of how this struct should look in a shader
-    pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+    pub fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
         use std::mem;
-        wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
+        wgpu::VertexBufferDescriptor {
+            stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
             attributes: &[
-                wgpu::VertexAttribute {
+                wgpu::VertexAttributeDescriptor {
                     offset: 0,
                     shader_location: 0,
                     format: wgpu::VertexFormat::Float3,
                 },
-                wgpu::VertexAttribute {
+                wgpu::VertexAttributeDescriptor {
                     offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float2, // NEW!
@@ -343,7 +344,7 @@ pub const QUAD: &[Vertex] = &[
 ]; 
 
 
-use cgmath::{Matrix4, SquareMatrix};
+use cgmath::{Matrix4, SquareMatrix, num_traits::PrimInt};
 use wgpu::util::DeviceExt;
 #[derive(Debug)]
 pub struct Camera {
@@ -446,10 +447,9 @@ impl CameraUniform{
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStage::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        has_dynamic_offset: false,
+                    ty: wgpu::BindingType::UniformBuffer {
+                        dynamic: false,
                         min_binding_size: None,
-                        ty: wgpu::BufferBindingType::Uniform
                     },
                     count: None,
                 }
@@ -464,7 +464,7 @@ impl CameraUniform{
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: buffer.as_entire_binding()
+                    resource: wgpu::BindingResource::Buffer(buffer.slice(..))
                 }
             ],
             label: Some("Transform_Bind_Group"),

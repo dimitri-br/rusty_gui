@@ -3,6 +3,8 @@
 //! of data around from the window to the renderer, without sacrificing much usability for
 //! the user.
 
+use std::time::{Duration, Instant};
+
 use crate::{layout::Layout, rendering::{Window, WindowBuilder, Renderer}};
 use futures::executor::block_on;
 
@@ -108,11 +110,11 @@ fn main_loop(gui: GUI){
     let mut minimized = false;
 
     event_loop.take().unwrap().run(move |event, _, control_flow| {
-        // ControlFlow::Wait pauses the event loop if no events are available to process.
+        // ControlFlow::WaitUntil pauses the event loop if no events are available to process.
+        // If no events are called, it will update every 10ms to make sure everything stays up to date
         // This is ideal for non-game applications that only update in response to user
         // input, and uses significantly less power/CPU time than ControlFlow::Poll.
-        *control_flow = ControlFlow::Wait;
-        
+        *control_flow = ControlFlow::WaitUntil(Instant::now().checked_add(Duration::from_millis(10)).unwrap());
         match event {
             // This part checks for a window event, then checks if its either an exit or resize
             // all other window events will be up to the user
@@ -154,6 +156,10 @@ fn main_loop(gui: GUI){
                             minimized = false;
                         }
                     },
+
+                    WindowEvent::Moved(phys_pos) => {
+                        println!("Window moved to: {:?}", phys_pos);
+                    }
                 
                     
                     _ => {}
