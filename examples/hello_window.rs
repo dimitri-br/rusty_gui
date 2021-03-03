@@ -42,7 +42,7 @@ fn _from_scratch(){
 
     let renderer = block_on(Renderer::new(&window.window));
 
-    let mut gui = GUI::new(window, renderer);
+    let mut gui = GUI::new(window, renderer, wgpu::Color::WHITE);
 
     let mut layout = Layout::new();
 
@@ -56,7 +56,7 @@ fn _from_scratch(){
 }
 
 // Simple button function that disables a button if the mouse is hovering and clicking over it
-fn test_button_func(event: &winit::event::Event<()>, window: &winit::window::Window, cursor_in_bounds: &bool, button_enabled: &mut bool){
+fn test_button_func(event: &winit::event::Event<()>, window: &winit::window::Window, cursor_in_bounds: &bool, _button_enabled: &mut bool){
     if cursor_in_bounds == &true{
         match event{
             Event::WindowEvent{
@@ -68,7 +68,8 @@ fn test_button_func(event: &winit::event::Event<()>, window: &winit::window::Win
                         button: winit::event::MouseButton::Left,
                         ..
                     } => {
-                        *button_enabled = !*button_enabled;
+                        println!("Button pressed!");
+                        *_button_enabled = !*_button_enabled;
                     }
                     _ => {}
                 }
@@ -76,8 +77,6 @@ fn test_button_func(event: &winit::event::Event<()>, window: &winit::window::Win
             _ => {}
         }
         
-    }else{
-        *button_enabled = true;
     }
 }
 
@@ -101,9 +100,10 @@ fn _from_default(){
     layout.add_text_component(Box::new(label_1));
 
     // We now define the text to render with the button
-    let mut text_label = Label::new("This is button text", 16.0, [250.0, 250.0]);
+    let mut text_label = Label::new("This is button text", 24.0, [250.0, 250.0]);
     text_label.align_horizontal(HorizontalAlign::Center);
     text_label.align_vertical(VerticalAlign::Center);
+
     // We add the text to our layout - make sure we grab the ID!
     let text_label_id = layout.add_text_component(Box::new(text_label));
 

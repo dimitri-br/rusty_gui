@@ -12,15 +12,18 @@ use winit::event::{WindowEvent, Event};
 pub struct GUI{
     pub window: Window,
     pub renderer: Renderer,
+    pub clear_color: wgpu::Color,
 }
 
 impl Default for GUI{
     fn default() -> GUI{
         let window = WindowBuilder::new().set_resolution((800, 600)).set_title("Rusty GUI app").build().expect("Error building window");
         let renderer = block_on(Renderer::new(&window.window));
+        let clear_color = wgpu::Color::WHITE;
         GUI{
             window: window,
             renderer: renderer,
+            clear_color: clear_color,
         }
     }
 }
@@ -30,10 +33,11 @@ impl GUI{
     /// This function takes the data required by a GUI struct and wraps it into itself
     /// 
     /// You can alternatively call default to generate a default renderer and window.
-    pub fn new(window: Window, renderer: Renderer) -> Self{
+    pub fn new(window: Window, renderer: Renderer, clear_color: wgpu::Color,) -> Self{
         Self{
             window,
             renderer,
+            clear_color
         }
     }
 }
@@ -99,7 +103,9 @@ fn main_loop(gui: GUI){
     let mut renderer = gui.renderer;
     let mut window = gui.window.window;
     let mut event_loop = gui.window.event_loop;
+    let clear_color = gui.clear_color;
     let event_loop_handler = gui.window.event_callback_handler;
+    let mut minimized = false;
 
     event_loop.take().unwrap().run(move |event, _, control_flow| {
         // ControlFlow::Wait pauses the event loop if no events are available to process.
@@ -133,11 +139,22 @@ fn main_loop(gui: GUI){
                     },
                     WindowEvent::Resized(physical_size) => {
                         renderer.resize(*physical_size);
+                        if renderer.size.width == 0 && renderer.size.height == 0{
+                            minimized = true;
+                        }else{
+                            minimized = false;
+                        }
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                         // new_inner_size is &&mut so we have to dereference it twice
                         renderer.resize(**new_inner_size);
+                        if renderer.size.width == 0 && renderer.size.height == 0{
+                            minimized = true;
+                        }else{
+                            minimized = false;
+                        }
                     },
+                
                     
                     _ => {}
                 }
@@ -145,13 +162,14 @@ fn main_loop(gui: GUI){
 
             Event::MainEventsCleared => {
                 // Application update code.
-    
-                // Queue a RedrawRequested event.
-                //
-                // You only need to call this if you've determined that you need to redraw, in
-                // applications which do not always need to. Applications that redraw continuously
-                // can just render here instead.
-                window.request_redraw();
+                if !minimized{
+                    // Queue a RedrawRequested event.
+                    //
+                    // You only need to call this if you've determined that you need to redraw, in
+                    // applications which do not always need to. Applications that redraw continuously
+                    // can just render here instead.
+                    window.request_redraw();
+                }
             }
             Event::RedrawRequested(_) => {
                 // Redraw the application.
@@ -160,7 +178,7 @@ fn main_loop(gui: GUI){
                 // this event rather than in MainEventsCleared, since rendering in here allows
                 // the program to gracefully handle redraws requested by the OS.
                 renderer.prepass(); // Update the layout and stuff
-                renderer.render(); // Render a single frame.
+                renderer.render(clear_color); // Render a single frame.
             }
             _ => {}
         }
@@ -175,10 +193,11 @@ fn main_loop(gui: GUI){
             }
         }
 
-        // Run event components - things like buttons and so on
-        for event_comp in renderer.layout.event_components.iter_mut(){
-            event_comp.handle_event_callback(&event, &mut window);
-            
+        if !minimized{
+            // Run event components - things like buttons and so on
+            for event_comp in renderer.layout.event_components.iter_mut(){
+                event_comp.handle_event_callback(&event, &mut window);
+            }
         }
 
     });

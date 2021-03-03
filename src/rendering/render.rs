@@ -24,7 +24,7 @@ pub struct Renderer{
     pub queue: wgpu::Queue,
     pub sc_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
-    size: winit::dpi::PhysicalSize<u32>,
+    pub size: winit::dpi::PhysicalSize<u32>,
 
     render_pipeline: wgpu::RenderPipeline,
     staging_belt: StagingBelt,
@@ -45,7 +45,7 @@ impl Renderer{
 
 
         // Create a new instance with the best api (VULKAN, DX12 or METAL)
-        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+        let instance = wgpu::Instance::new(wgpu::BackendBit::DX11);
 
         // Create a surface (like a link to the winit window)
         
@@ -67,7 +67,7 @@ impl Renderer{
             &wgpu::DeviceDescriptor {
                 features: wgpu::Features::default(),
                 limits: wgpu::Limits::default(),
-                label: Some("device_descriptor"),
+                label: Some("Device Descriptor"),
             },
             None, // Trace path
         ).await.unwrap();
@@ -189,9 +189,11 @@ impl Renderer{
     /// This function gets called upon a resize, as we need to recreate the swapchain
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
-        self.sc_desc.width = new_size.width;
-        self.sc_desc.height = new_size.height;
-        self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
+        if new_size.width > 0 && new_size.height > 0{
+            self.sc_desc.width = new_size.width;
+            self.sc_desc.height = new_size.height;
+            self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
+        }
     }
 
     /// This should run BEFORE we render. This lets us set up last minute values
@@ -225,7 +227,7 @@ impl Renderer{
     }
 
     /// Render a single frame 
-    pub fn render(&mut self){
+    pub fn render(&mut self, clear_color: wgpu::Color){
         let frame = self.swap_chain.get_current_frame().unwrap().output;
 
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -243,12 +245,7 @@ impl Renderer{
                         attachment: &frame.view,
                         resolve_target: None,
                         ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color {
-                                r: 0.5,
-                                g: 0.5,
-                                b: 0.5,
-                                a: 1.0,
-                            }),
+                            load: wgpu::LoadOp::Clear(clear_color),
                             store: true,
                         }
                     },
@@ -276,11 +273,12 @@ impl Renderer{
                     render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
                     comp.render(&mut render_pass);
                 }
-            } 
-        }
-
-        for text_comp in self.layout.text_components.iter(){
-            text_comp.render_text(&mut self.glyph_brush);
+            }
+            {
+                for text_comp in self.layout.text_components.iter(){
+                    text_comp.render_text(&mut self.glyph_brush);
+                }
+            }
         }
 
         {
@@ -288,6 +286,7 @@ impl Renderer{
         }
 
         self.staging_belt.finish();
+        
         // submit will accept anything that implements IntoIter
         self.queue.submit(std::iter::once(encoder.finish()));
     }
