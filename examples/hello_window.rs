@@ -6,14 +6,12 @@
 use futures::executor::block_on;
 use rusty_gui::{components::{Button, Label}, gui::{GUI}, layout::Layout, rendering::{Renderer, ScreenMode, Transform, WindowBuilder}};
 use winit::event::{ElementState, Event};
-use wgpu_glyph::{HorizontalAlign, VerticalAlign};
 
 /// A simple callback handler. Shows how it works, so you can extend it
-fn event_callback_handler(_event: &winit::event::Event<()>, window: &mut winit::window::Window, _renderer: &mut rusty_gui::rendering::Renderer){
+fn event_callback_handler(_event: &winit::event::Event<()>, _window: &mut winit::window::Window, _renderer: &mut rusty_gui::rendering::Renderer){
     // Handle events
     
 }
-
 
 fn main(){
     // Choose to either build the window and renderer ourselves and pass it to a GUI,
@@ -106,26 +104,27 @@ fn _from_default(){
     layout.add_text_component(Box::new(label_2));
 
 
-    // We now define the text to render with the button
-    let mut text_label = Label::new("This is button text", 24.0, [250.0, 250.0]);
-    text_label.align_horizontal(HorizontalAlign::Center);
-    text_label.align_vertical(VerticalAlign::Center);
 
-    // We add the text to our layout - make sure we grab the ID!
-    let text_label_id = layout.add_text_component(Box::new(text_label));
-
-    // Simple button, with callback. Use our text ID here
+    // Simple button, with callback
     let button = Button::new(
-        Transform::new(
-            cgmath::Vector3::<f32>::new(0.0, 0.0, 0.0), 
-            cgmath::Quaternion::<f32>::new(0.0, 0.0, 0.0, 0.0), 
-            cgmath::Vector3::<f32>::new(0.2, 0.2, 0.2), gui.borrow_render_device()),
+        // The transformation of the button
+Transform::new(
+        cgmath::Vector3::<f32>::new(0.0, 0.0, 0.0), 
+        cgmath::Quaternion::<f32>::new(0.0, 0.0, 0.0, 0.0), 
+        cgmath::Vector3::<f32>::new(0.2, 0.2, 0.2), gui.borrow_render_device()),
 
-        Some(Box::new(test_button_func)),
+        // Function that should be called when the button is pressed
+Some(Box::new(test_button_func)),
 
-                gui.borrow_renderer(),
+        // We need the renderer to write some buffers
+        gui.borrow_renderer(),
 
-Some(text_label_id),
+        // Define the text
+    Some("Hello, Button!"),
+    
+32.0,
+        // Borrow the layout
+        &mut layout
     );
 
     // Add the button to the layout

@@ -26,3 +26,5 @@ futures = "0.3.11"
 bytemuck = { version = "1.5", features = [ "derive" ] }
 # Useful for vector/quaternion maths
 cgmath = "0.18"
+# image tools
+image  = "0.23"

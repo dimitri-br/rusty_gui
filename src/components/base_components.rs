@@ -5,11 +5,11 @@
 
 use wgpu::util::DeviceExt;
 use winit::window::Window;
-
+use wgpu_glyph::{HorizontalAlign, VerticalAlign};
 
 use crate::{layout::Layout, rendering::{Renderer, Transform}};
 
-use std::{any::Any, time::Instant};
+use std::{any::Any};
 
 /// # GUIComponent
 ///
@@ -152,7 +152,18 @@ pub struct Button{
 
 
 impl Button{
-    pub fn new(transform: Transform, callback: Option<Box<dyn Fn(&winit::event::Event<()>, &Window, &bool, &mut bool) -> ()>>, renderer: &Renderer, attached_text_id: Option<usize>) -> Self{
+    pub fn new(transform: Transform, callback: Option<Box<dyn Fn(&winit::event::Event<()>, &Window, &bool, &mut bool) -> ()>>, renderer: &Renderer, text: Option<&str>, text_size: f32, layout: &mut Layout) -> Self{
+        let mut attached_text_id = None;
+        // We now define the text to render with the button
+        if let Some(button_text) = text{
+            let mut text_label = Label::new(button_text, text_size, [0.0, 0.0]);
+            text_label.align_horizontal(HorizontalAlign::Center);
+            text_label.align_vertical(VerticalAlign::Center);
+    
+            // We add the text to our layout - make sure we grab the ID!
+            attached_text_id = Some(layout.add_text_component(Box::new(text_label)));
+        }
+        
         Self{
             transform,
             callback,
@@ -193,8 +204,6 @@ impl EventGUIComponent for Button{
     }
 
     fn handle_event_callback(&mut self, event: &winit::event::Event<()>, window: &winit::window::Window){
-        let curr_time = Instant::now();
-
         match event{
             winit::event::Event::WindowEvent {
                 ref event,
@@ -234,8 +243,6 @@ impl EventGUIComponent for Button{
             Some(v) => { v(event, &window, &self.cursor_in_bounds, &mut self.enabled);},
             None => {}
         };       
-
-        //println!("Check time: {:?}", Instant::now() - curr_time);
     }
 
     fn as_any(&self) -> &dyn Any{

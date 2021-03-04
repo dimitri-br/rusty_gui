@@ -114,7 +114,7 @@ fn main_loop(gui: GUI){
         // If no events are called, it will update every 10ms to make sure everything stays up to date
         // This is ideal for non-game applications that only update in response to user
         // input, and uses significantly less power/CPU time than ControlFlow::Poll.
-        *control_flow = ControlFlow::WaitUntil(Instant::now().checked_add(Duration::from_millis(10)).unwrap());
+        *control_flow = ControlFlow::WaitUntil(Instant::now().checked_add(Duration::from_millis(250)).unwrap());
 
         if !minimized{
             // Run event components - things like buttons and so on
