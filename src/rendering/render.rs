@@ -45,7 +45,7 @@ impl Renderer{
 
 
         // Create a new instance with the best api (VULKAN, DX12/DX11 or METAL)
-        let instance = wgpu::Instance::new(wgpu::BackendBit::VULKAN);
+        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
 
         // Create a surface (like a link to the winit window)
         
